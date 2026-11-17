@@ -233,14 +233,32 @@ async function loadPodium() {
 }
 
 // ---------- thành tích ----------
-// Màn rộng: cho lưới thẻ cao bằng phần màn còn lại của tab
-function fitAchv() {
-  const box = $("#achv");
-  if (!box || !box.offsetParent) return;
-  const top = box.getBoundingClientRect().top + window.scrollY;
-  box.style.setProperty("--achv-h", Math.max(360, window.innerHeight - top - 24) + "px");
+// Huy hiệu cánh cho danh hiệu Top N (màu lấy theo biến --c1/--c2/--c3 của thẻ)
+const CREST_WING = "M82 50 C60 46 30 34 4 4 C14 28 22 37 30 42 C18 42 10 39 4 35 C17 50 32 56 46 58 C36 60 27 60 18 58 C34 70 58 71 84 63 Z";
+const CREST_WING_HL = "M76 52 C56 48 34 38 16 20";
+function crestSvg(rank, tier, uid) {
+  const g = `cw${uid}`, p = `cp${uid}`;
+  const plate = `<stop offset="0" style="stop-color:var(--c1)"/><stop offset=".45" style="stop-color:var(--c3)"/><stop offset="1" style="stop-color:var(--c2)"/>`;
+  const top = tier === 1
+    ? `<path class="w" fill="url(#${g})" d="M78 34 L84 14 L92 28 L100 2 L108 28 L116 14 L122 34 Z"/>`
+    : `<path class="w" fill="url(#${g})" d="M88 32 L100 10 L112 32 Z"/>`;
+  const mirror = `transform="translate(200 0) scale(-1 1)"`;
+  return `<svg class="crest" viewBox="0 0 200 84" aria-label="Top ${rank}">
+    <defs>
+      <linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" style="stop-color:var(--c1)"/><stop offset=".55" style="stop-color:var(--c3)"/><stop offset="1" style="stop-color:var(--c2)"/>
+      </linearGradient>
+      <linearGradient id="${p}" x1="0" y1="0" x2="0" y2="1">${plate}</linearGradient>
+    </defs>
+    <path class="w" fill="url(#${g})" d="${CREST_WING}"/>
+    <path class="w" fill="url(#${g})" d="${CREST_WING}" ${mirror}/>
+    <path class="hl" d="${CREST_WING_HL}"/><path class="hl" d="${CREST_WING_HL}" ${mirror}/>
+    ${top}
+    <path class="pl" fill="url(#${p})" d="M60 34 L100 26 L140 34 L136 60 L100 78 L64 60 Z"/>
+    <path class="hl" d="M66 38 L100 31 L134 38"/>
+    <text x="100" y="54" text-anchor="middle" dominant-baseline="middle">TOP ${rank}</text>
+  </svg>`;
 }
-window.addEventListener("resize", fitAchv);
 // Mỗi lần vô địch League hoặc Cup = 1 sao vàng
 async function loadAchievements() {
   const box = $("#achv");
@@ -258,7 +276,7 @@ async function loadAchievements() {
           (r.league_win ? `<span class="tag tag-l">League ×${r.league_win}</span>` : "") +
           (r.cup_win ? `<span class="tag tag-c">Cup ×${r.cup_win}</span>` : "");
         return `<div class="ach ach-t${tier} ${r.stars ? "" : "ach-0"}">
-          <div class="ach-title"><span>Top ${ranks[i]}</span></div>
+          <div class="ach-title">${crestSvg(ranks[i], tier, i)}</div>
           <div class="ach-card">
             <div class="ach-rib">${esc(r.name)}</div>
             <div class="ach-img">${avatarHtml(r.player_id, r.name, avatars[r.player_id], "ach-av")}</div>
@@ -270,7 +288,6 @@ async function loadAchievements() {
         </div>`;
       })
       .join("");
-    fitAchv();
   } catch (e) {
     box.innerHTML = `<p class="err">${esc(e.message)}</p>`;
   }
