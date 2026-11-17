@@ -233,6 +233,14 @@ async function loadPodium() {
 }
 
 // ---------- thành tích ----------
+// Màn rộng: cho lưới thẻ cao bằng phần màn còn lại của tab
+function fitAchv() {
+  const box = $("#achv");
+  if (!box || !box.offsetParent) return;
+  const top = box.getBoundingClientRect().top + window.scrollY;
+  box.style.setProperty("--achv-h", Math.max(360, window.innerHeight - top - 24) + "px");
+}
+window.addEventListener("resize", fitAchv);
 // Mỗi lần vô địch League hoặc Cup = 1 sao vàng
 async function loadAchievements() {
   const box = $("#achv");
@@ -250,9 +258,9 @@ async function loadAchievements() {
           (r.league_win ? `<span class="tag tag-l">League ×${r.league_win}</span>` : "") +
           (r.cup_win ? `<span class="tag tag-c">Cup ×${r.cup_win}</span>` : "");
         return `<div class="ach ach-t${tier} ${r.stars ? "" : "ach-0"}">
+          <div class="ach-title"><span>Top ${ranks[i]}</span></div>
           <div class="ach-card">
-            <div class="ach-rib">Top ${ranks[i]}</div>
-            <div class="ach-n">${esc(r.name)}</div>
+            <div class="ach-rib">${esc(r.name)}</div>
             <div class="ach-img">${avatarHtml(r.player_id, r.name, avatars[r.player_id], "ach-av")}</div>
             <div class="ach-box">
               <div class="ach-s">${stars}</div>
@@ -262,6 +270,7 @@ async function loadAchievements() {
         </div>`;
       })
       .join("");
+    fitAchv();
   } catch (e) {
     box.innerHTML = `<p class="err">${esc(e.message)}</p>`;
   }
