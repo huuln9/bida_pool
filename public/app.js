@@ -263,6 +263,20 @@ async function loadAchievements() {
 }
 
 // ---------- các giải ----------
+// Bảng kết quả 1 thể thức trong 1 giải
+function resTable(title, cls, list, name) {
+  return `<table class="res res-${cls}">
+    <thead><tr><th colspan="4" class="res-t">${title}</th></tr>
+      <tr><th>Hạng</th><th class="n">Cơ thủ</th><th>Thắng</th><th>Thua</th></tr></thead>
+    <tbody>${list
+      .map(
+        (r) => `<tr><td><span class="r r${Math.min(r.rank, 4)}">${r.rank}</span></td><td class="n">${esc(name(r.player_id))}</td>
+        <td class="w">${r.win}</td><td class="l">${r.lose}</td></tr>`,
+      )
+      .join("")}</tbody>
+  </table>`;
+}
+
 async function loadSessions() {
   const box = $("#session-list");
   try {
@@ -283,8 +297,10 @@ async function loadSessions() {
               <button class="mini" data-edit="${s.id}">Sửa</button>
               <button class="mini danger" data-del="${s.id}">Xoá</button>
             </span></h3>
-          ${league.length ? `<p><span class="lbl">League:</span> ${league.map((r, j) => `${ranks[j]}. ${esc(name(r.player_id))} ${r.win}-${r.lose}`).join(" · ")}</p>` : ""}
-          ${cup.length ? `<p><span class="lbl">Cup:</span> ${cup.map((r) => `${r.rank}. ${esc(name(r.player_id))}`).join(" · ")}</p>` : ""}
+          <div class="res-wrap">
+            ${league.length ? resTable("League", "lg", league.map((r, j) => ({ ...r, rank: ranks[j] })), name) : ""}
+            ${cup.length ? resTable("Cup", "cp", cup, name) : ""}
+          </div>
         </div>`;
       })
       .join("");
