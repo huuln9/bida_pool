@@ -56,7 +56,7 @@ export function denseRanks<T>(items: T[], score: (t: T) => number): Map<T, numbe
   return out;
 }
 
-/** Gán hạng League cho từng buổi dựa trên số trận thắng League trong buổi đó. */
+/** Gán hạng League cho từng giải dựa trên số trận thắng League trong giải đó. */
 export function withLeagueRanks(results: Result[]): Result[] {
   const bySession = new Map<number, Result[]>();
   for (const r of results) {
@@ -90,7 +90,7 @@ export interface Row {
   cup_pts: number;
   points: number;
   rank: number;
-  /** So với bảng trước buổi gần nhất. null = không có dữ liệu để so. */
+  /** So với bảng trước giải gần nhất. null = không có dữ liệu để so. */
   points_delta: number | null;
   rank_delta: number | null; // dương = lên hạng
   played_latest: boolean;
@@ -100,7 +100,7 @@ function sortSessions(sessions: Session[]): Session[] {
   return [...sessions].sort((a, b) => (a.date === b.date ? a.id - b.id : a.date < b.date ? -1 : 1));
 }
 
-/** Tính bảng tổng từ các buổi cho trước (chưa có delta). */
+/** Tính bảng tổng từ các giải cho trước (chưa có delta). */
 export function computeTable(players: Player[], sessions: Session[], rawResults: Result[]): Row[] {
   const ordered = sortSessions(sessions);
   const order = new Map(ordered.map((s, i) => [s.id, i]));
@@ -150,7 +150,7 @@ export function computeTable(players: Player[], sessions: Session[], rawResults:
   return rows;
 }
 
-/** Bảng xếp hạng hiện tại kèm thay đổi điểm/hạng so với trước buổi gần nhất. */
+/** Bảng xếp hạng hiện tại kèm thay đổi điểm/hạng so với trước giải gần nhất. */
 export function computeLeaderboard(players: Player[], sessions: Session[], results: Result[]): Row[] {
   const ordered = sortSessions(sessions);
   const now = computeTable(players, ordered, results);

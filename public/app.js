@@ -6,6 +6,28 @@ if (tg) {
   tg.ready();
   tg.expand();
   if (inTelegram) document.documentElement.classList.add("tg");
+  if (inTelegram && ["tdesktop", "macos", "weba", "webk", "unigram"].includes(tg.platform)) {
+    document.documentElement.classList.add("desk");
+  }
+  // Toàn màn hình trên điện thoại (Telegram 8.0+)
+  const mobile = ["android", "ios"].includes(tg.platform);
+  if (mobile && tg.isVersionAtLeast?.("8.0") && !tg.isFullscreen) {
+    try { tg.requestFullscreen(); } catch {}
+  }
+  // Chừa chỗ cho tai thỏ + nút Close/menu của Telegram khi toàn màn hình
+  const applyInsets = () => {
+    const s = tg.safeAreaInset || {};
+    const c = tg.contentSafeAreaInset || {};
+    const top = (s.top || 0) + (c.top || 0);
+    const bottom = (s.bottom || 0) + (c.bottom || 0);
+    document.body.style.paddingTop =
+      top > 0 ? top + "px" : tg.isFullscreen ? "calc(env(safe-area-inset-top, 44px) + 56px)" : "";
+    document.body.style.paddingBottom = 24 + bottom + "px";
+  };
+  applyInsets();
+  ["safeAreaChanged", "contentSafeAreaChanged", "fullscreenChanged", "viewportChanged"].forEach((ev) => {
+    try { tg.onEvent(ev, applyInsets); } catch {}
+  });
 }
 
 const $ = (sel) => document.querySelector(sel);
@@ -63,14 +85,16 @@ $("#tabs").addEventListener("click", (e) => {
 });
 
 // ---------- bảng xếp hạng ----------
-const badges = (ranks) => ranks.map((r) => `<span class="r">${r}</span>`).join("");
+// Chỉ hiện hạng của 3 giải gần nhất
+const RANK_HISTORY = 3;
+const badges = (ranks) => ranks.slice(0, RANK_HISTORY).map((r) => `<span class="r">${r}</span>`).join("");
 const fmtDate = (d) => (d ? d.split("-").reverse().join("/") : "");
 
 async function loadBoard() {
   const lb = $("#lb");
   try {
     const { rows, latest, sessionCount } = await api("/api/leaderboard");
-    $("#board-sub").textContent = latest ? `Sau ${sessionCount} buổi · gần nhất ${fmtDate(latest.date)}` : "Chưa có buổi nào.";
+    $("#board-sub").textContent = latest ? `Sau ${sessionCount} giải · gần nhất ${fmtDate(latest.date)}` : "Chưa có giải nào.";
 
     // Ký hiệu ghi chú: (*), (**), ...
     const marks = new Map();
@@ -92,34 +116,44 @@ async function loadBoard() {
         <td>${r.rank}</td>
         <td class="n">${esc(r.name)}${marks.has(r.player_id) ? " " + marks.get(r.player_id) : ""}${rankMark(r)}</td>
         <td>${r.games}</td><td>${r.win}</td><td>${r.lose}</td><td>${r.win_rate.toFixed(1)}</td>
-        <td class="g">${r.league_played}</td><td>${r.league_win}</td><td>${badges(r.league_ranks)}</td><td>${r.league_pts}</td>
-        <td class="g">${r.cup_played}</td><td>${r.cup_win}</td><td>${badges(r.cup_ranks)}</td><td>${r.cup_pts}</td>
+        <td class="g">${r.league_played}</td><td>${r.league_win}</td><td class="rk">${badges(r.league_ranks)}</td><td>${r.league_pts}</td>
+        <td class="g">${r.cup_played}</td><td>${r.cup_win}</td><td class="rk">${badges(r.cup_ranks)}</td><td>${r.cup_pts}</td>
         <td class="g p">${r.points}</td>${ptsMark(r)}
       </tr>`,
         )
         .join("")}</tbody>`;
 
     const notes = rows.filter((r) => r.note).map((r) => `${marks.get(r.player_id)} ${esc(r.note)}`);
+    const sec = (title, lines) =>
+      `<div class="note-sec"><div class="note-h">${title}</div>${lines.map((l) => `<div>${l}</div>`).join("")}</div>`;
     $("#lb-note").innerHTML = [
-      "L. = League · C. = Cup · Pts = Points · Rank: lần gần nhất → lần trước",
-      ...notes,
-      "Cách tính điểm: thắng 1 trận +1 · League và Cup: Top 1 +3 · Top 2 +2 · Top 3 +1 · Top 4 +0",
-      "Pts = Win + L. Pts + C. Pts · ▲▼ so với trước buổi gần nhất",
-    ].join("<br>");
+      sec("Ký hiệu", [
+        "L. = League · C. = Cup · Pts = Points",
+        `Rank: hạng ${RANK_HISTORY} giải gần nhất, mới nhất → cũ nhất`,
+        `<span class="c-up">▲</span><span class="c-down">▼</span> cạnh tên: lên / xuống hạng so với giải trước`,
+        `<span class="c-up">▲</span> cạnh Pts: số điểm tăng so với giải trước`,
+      ]),
+      sec("Cách tính điểm", [
+        "Thắng 1 trận: +1",
+        "Hạng League / Cup: Top 1 +3 · Top 2 +2 · Top 3 +1 · Top 4 +0",
+        "<b>Pts = Win + L. Pts + C. Pts</b>",
+      ]),
+      notes.length ? sec("Ghi chú", notes) : "",
+    ].join("");
   } catch (e) {
     lb.innerHTML = "";
     $("#board-sub").textContent = "Không tải được: " + e.message;
   }
 }
 
-// ---------- các buổi ----------
+// ---------- các giải ----------
 async function loadSessions() {
   const box = $("#session-list");
   try {
     [state.sessions] = await Promise.all([api("/api/sessions"), loadPlayers()]);
     const name = (id) => state.players.find((p) => p.id === id)?.name ?? "?";
     if (!state.sessions.length) {
-      box.innerHTML = `<p class="hint">Chưa có buổi nào.</p>`;
+      box.innerHTML = `<p class="hint">Chưa có giải nào.</p>`;
       return;
     }
     box.innerHTML = state.sessions
@@ -128,7 +162,7 @@ async function loadSessions() {
         const ranks = denseRanks(league.map((r) => r.win));
         const cup = s.results.filter((r) => r.type === "CUP").sort((a, b) => a.rank - b.rank);
         return `<div class="card">
-          <h3><span>Buổi ${state.sessions.length - i} · ${fmtDate(s.date)}</span>
+          <h3><span>Giải ${state.sessions.length - i} · ${fmtDate(s.date)}</span>
             <span class="btns admin-only">
               <button class="mini" data-edit="${s.id}">Sửa</button>
               <button class="mini danger" data-del="${s.id}">Xoá</button>
@@ -152,7 +186,7 @@ $("#session-list").addEventListener("click", async (e) => {
   }
   if (del) {
     const s = state.sessions.find((x) => x.id === Number(del.dataset.del));
-    if (!(await confirmBox(`Xoá buổi ${fmtDate(s?.date)}? Không hoàn tác được.`))) return;
+    if (!(await confirmBox(`Xoá giải ${fmtDate(s?.date)}? Không hoàn tác được.`))) return;
     try {
       await api(`/api/sessions/${del.dataset.del}`, { method: "DELETE" });
       haptic();
@@ -169,7 +203,7 @@ function denseRanks(sortedDesc) {
   return sortedDesc.map((v) => (v !== prev ? ((prev = v), ++rank) : rank));
 }
 
-// ---------- nhập buổi ----------
+// ---------- nhập giải ----------
 const CUP_DEFAULT = { 1: [2, 0], 2: [1, 1], 3: [1, 1] };
 
 function renderEntryRows(existing) {
@@ -238,7 +272,7 @@ function todayStr() {
 async function resetEntry() {
   state.editingId = null;
   $("#entry-cancel").hidden = true;
-  $("#entry-submit").textContent = "Lưu buổi chơi";
+  $("#entry-submit").textContent = "Lưu giải";
   $("#entry-err").textContent = "";
   $("#date").value = todayStr();
   await loadPlayers();
@@ -250,7 +284,7 @@ async function startEdit(s) {
   await loadPlayers();
   showTab("entry");
   $("#entry-cancel").hidden = false;
-  $("#entry-submit").textContent = "Cập nhật buổi";
+  $("#entry-submit").textContent = "Cập nhật giải";
   $("#entry-err").textContent = "";
   $("#date").value = s.date;
   renderEntryRows(s.results);
@@ -293,7 +327,7 @@ $("#entry").addEventListener("submit", async (e) => {
     return;
   }
   const editing = state.editingId != null;
-  const msg = `${editing ? "Cập nhật" : "Lưu"} buổi ${fmtDate(body.date)}: League ${body.league.length} người, Cup ${body.cup.length} người?`;
+  const msg = `${editing ? "Cập nhật" : "Lưu"} giải ${fmtDate(body.date)}: League ${body.league.length} người, Cup ${body.cup.length} người?`;
   if (!(await confirmBox(msg))) return;
   try {
     await api(editing ? `/api/sessions/${state.editingId}` : "/api/sessions", { method: editing ? "PUT" : "POST", body });

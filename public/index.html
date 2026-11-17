@@ -15,8 +15,8 @@
 
   <nav class="tabs" id="tabs">
     <button data-tab="board" class="on">Bảng xếp hạng</button>
-    <button data-tab="sessions">Các buổi</button>
-    <button data-tab="entry" class="admin-only">Nhập buổi</button>
+    <button data-tab="sessions">Các giải</button>
+    <button data-tab="entry" class="admin-only">Nhập giải</button>
     <button data-tab="players" class="admin-only">Cơ thủ</button>
   </nav>
 
@@ -34,7 +34,7 @@
     <section id="tab-entry" hidden>
       <form id="entry" autocomplete="off">
         <div class="field">
-          <label for="date">Ngày chơi</label>
+          <label for="date">Ngày thi đấu</label>
           <input type="date" id="date" required />
         </div>
 
@@ -48,7 +48,7 @@
         <p class="err" id="entry-err"></p>
         <div class="actions">
           <button type="button" class="ghost" id="entry-cancel" hidden>Huỷ sửa</button>
-          <button type="submit" class="primary" id="entry-submit">Lưu buổi chơi</button>
+          <button type="submit" class="primary" id="entry-submit">Lưu giải</button>
         </div>
       </form>
     </section>

@@ -58,6 +58,18 @@ function requireAdmin(auth: Auth) {
   if (!auth.isAdmin) throw new HttpError(403, "Chỉ admin mới được sửa dữ liệu.");
 }
 
+/** Ghi chú nhiều dòng: bỏ dòng trống, tối đa 10 dòng x 120 ký tự. */
+function cleanNote(v: unknown): string | null {
+  const lines = String(v ?? "")
+    .split(/\r?\n/)
+    .map((l) => l.replace(/^[\s*•\-]+/, "").trim())
+    .filter(Boolean);
+  if (lines.length > 10 || lines.some((l) => l.length > 120)) {
+    throw new HttpError(400, "Ghi chú tối đa 10 dòng, mỗi dòng 120 ký tự.");
+  }
+  return lines.length ? lines.join("\n") : null;
+}
+
 const isDate = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 const isCount = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 999;
 
@@ -141,7 +153,7 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
   if (path === "/api/players" && method === "POST") {
     requireAdmin(auth);
     const name = String(body?.name ?? "").trim();
-    const note = String(body?.note ?? "").trim() || null;
+    const note = cleanNote(body?.note);
     if (!name || name.length > 40) throw new HttpError(400, "Tên không hợp lệ.");
     const dup = await db.prepare("SELECT id FROM players WHERE name = ?").bind(name).first();
     if (dup) throw new HttpError(409, "Tên này đã có.");
@@ -153,7 +165,7 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
     const id = Number(m[1]);
     if (method === "PUT") {
       const name = String(body?.name ?? "").trim();
-      const note = String(body?.note ?? "").trim() || null;
+      const note = cleanNote(body?.note);
       if (!name || name.length > 40) throw new HttpError(400, "Tên không hợp lệ.");
       const dup = await db.prepare("SELECT id FROM players WHERE name = ? AND id <> ?").bind(name, id).first();
       if (dup) throw new HttpError(409, "Tên này đã có.");
@@ -168,7 +180,7 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
     }
   }
 
-  // --- buổi chơi ---
+  // --- giải ---
   if (path === "/api/sessions" && method === "GET") {
     const { sessions, results } = await loadAll(db);
     return json(
@@ -194,7 +206,7 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
     requireAdmin(auth);
     const id = Number(m[1]);
     const exists = await db.prepare("SELECT id FROM sessions WHERE id = ?").bind(id).first();
-    if (!exists) throw new HttpError(404, "Không tìm thấy buổi chơi.");
+    if (!exists) throw new HttpError(404, "Không tìm thấy giải.");
     if (method === "PUT") {
       const ids = new Set((await db.prepare("SELECT id FROM players").all<{ id: number }>()).results.map((p) => p.id));
       const s = parseSession(body, ids);
@@ -226,16 +238,21 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
 function textTable(rows: Row[]): string {
   const pad = (s: string, n: number) => (s.length >= n ? s.slice(0, n) : s + " ".repeat(n - s.length));
   const lpad = (s: string, n: number) => (s.length >= n ? s : " ".repeat(n - s.length) + s);
+  const marks = new Map<number, number>();
+  rows.filter((r) => r.note).forEach((r, i) => marks.set(r.player_id, i + 1));
   const lines = rows.map((r) => {
     const mark = r.rank_delta ? (r.rank_delta > 0 ? `▲${r.rank_delta}` : `▼${-r.rank_delta}`) : "";
     const up = r.points_delta ? ` +${r.points_delta}` : "";
-    return `${lpad(String(r.rank), 2)} ${pad(r.name + (r.note ? "*" : ""), 8)}${lpad(String(r.points), 4)}${pad(up, 4)} ${lpad(
+    const name = r.name + (marks.has(r.player_id) ? `(${marks.get(r.player_id)})` : "");
+    return `${lpad(String(r.rank), 2)} ${pad(name, 9)}${lpad(String(r.points), 4)}${pad(up, 4)} ${lpad(
       String(r.win),
       3,
     )}-${pad(String(r.lose), 3)} ${mark}`;
   });
-  const notes = rows.filter((r) => r.note).map((r) => `* ${r.name}: ${r.note}`);
-  return ["#  Cơ thủ   Pts      W-L", ...lines, ...(notes.length ? ["", ...notes] : [])].join("\n");
+  const notes = rows
+    .filter((r) => r.note)
+    .flatMap((r) => [`(${marks.get(r.player_id)}): ${r.name}`, ...r.note!.split("\n").map((l) => `  • ${l}`)]);
+  return ["#  Cơ thủ    Pts      W-L", ...lines, ...(notes.length ? ["", ...notes] : [])].join("\n");
 }
 
 const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -283,7 +300,7 @@ async function bot(req: Request, env: Env, url: URL): Promise<Response> {
 
     if (cmd === "/bxh") {
       const { rows, latest } = await leaderboard(env);
-      const head = latest ? `🎱 <b>BẢNG XẾP HẠNG</b> (sau buổi ${latest.date})\n` : "🎱 <b>BẢNG XẾP HẠNG</b>\n";
+      const head = latest ? `🎱 <b>BẢNG XẾP HẠNG</b> (sau giải ${latest.date})\n` : "🎱 <b>BẢNG XẾP HẠNG</b>\n";
       await tgCall(token, "sendMessage", {
         chat_id: chatId,
         parse_mode: "HTML",

@@ -21,7 +21,11 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text); }
-body { font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 0 12px 24px; }
+body {
+  font: 14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  padding: calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px)) 12px
+    calc(24px + var(--tg-safe-area-inset-bottom, 0px));
+}
 [hidden] { display: none !important; }
 
 .top { display: flex; align-items: baseline; justify-content: space-between; padding: 12px 0 6px; }
@@ -43,12 +47,13 @@ body:not(.admin) .admin-only { display: none !important; }
 /* Bảng xếp hạng */
 .scroll { overflow-x: auto; margin: 0 -12px; padding: 0 12px; }
 .lb { width: 100%; border-collapse: collapse; font-size: 10px; letter-spacing: -0.2px; line-height: 1.25; font-variant-numeric: tabular-nums; }
-.lb th { font-weight: 600; color: var(--hint); padding: 4px 1px; border-bottom: 0.5px solid var(--line-strong); text-align: center; vertical-align: bottom; }
-.lb td { padding: 6px 1px; text-align: center; border-bottom: 0.5px solid var(--line); white-space: nowrap; }
+.lb th { font-weight: 600; color: var(--hint); padding: 4px 0.5px; border-bottom: 0.5px solid var(--line-strong); text-align: center; vertical-align: bottom; }
+.lb td { padding: 6px 0.5px; text-align: center; border-bottom: 0.5px solid var(--line); white-space: nowrap; }
 .lb .n { text-align: left; font-weight: 600; }
 .lb .g { border-left: 0.5px solid var(--line); }
 .lb .p { font-weight: 700; }
-.lb .r { display: inline-block; min-width: 12px; height: 13px; line-height: 13px; border-radius: 3px; background: var(--badge-bg); color: var(--link); margin: 0 0.5px; }
+.lb .r { display: inline-block; min-width: 10px; height: 13px; line-height: 13px; border-radius: 3px; background: var(--badge-bg); color: var(--link); margin: 0 0.5px; }
+.lb .rk { padding-left: 0; padding-right: 0; }
 .lb .up { color: var(--up); font-weight: 600; text-align: left; padding-left: 3px; }
 .lb .z { color: var(--hint); text-align: left; padding-left: 3px; }
 .lb .ru { color: var(--up); margin-left: 2px; }
@@ -85,10 +90,48 @@ button.mini { padding: 4px 9px; font-size: 12px; background: var(--bg); color: v
 button.mini.danger { color: var(--danger); }
 .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
 
-.row-form { display: grid; grid-template-columns: 1fr 1fr auto; gap: 6px; margin-top: 10px; }
-.player { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 6px; align-items: center; margin-bottom: 6px; }
+.row-form, .player { display: grid; grid-template-columns: 1fr 1fr 56px 56px; gap: 6px; align-items: stretch; }
+.player { margin-bottom: 6px; }
+.row-form { margin-top: 10px; }
+.row-form button { grid-column: span 2; padding: 0; }
+.player button.mini { padding: 0; font-size: 13px; }
 
 .toast {
   position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--text); color: var(--bg);
   padding: 8px 14px; border-radius: 8px; font-size: 13px; z-index: 10;
 }
+
+/* ---------- Màn hình rộng (PC, tablet): chữ to hơn, bảng gọn ở giữa ---------- */
+@media (min-width: 640px) {
+  body { font-size: 15px; max-width: 1100px; margin: 0 auto; padding-left: 20px; padding-right: 20px; }
+  .top h1 { font-size: 22px; }
+  .who { font-size: 13px; }
+  .tabs button { font-size: 15px; padding: 7px 14px; }
+  .sub { font-size: 13px; }
+  .scroll { margin: 0; padding: 0; }
+  .lb { font-size: 14px; letter-spacing: 0; }
+  .lb th { padding: 6px 5px; }
+  .lb td { padding: 9px 5px; }
+  .lb .r { min-width: 20px; height: 20px; line-height: 20px; border-radius: 5px; margin: 0 1px; font-size: 13px; }
+  .lb .up, .lb .z { padding-left: 6px; }
+  .note { font-size: 13px; }
+  .card p { font-size: 14px; }
+  .grid { grid-template-columns: 1fr 80px 80px 80px; max-width: 520px; }
+  .row-form, #player-list { max-width: 640px; }
+}
+@media (min-width: 1000px) {
+  .lb { font-size: 16px; }
+  .lb td { padding: 11px 6px; }
+  .lb .r { min-width: 22px; height: 22px; line-height: 22px; font-size: 14px; }
+  .note { font-size: 14px; }
+}
+/* Telegram trên PC vẽ nút ⋮ và ✕ ở góc phải trên: chừa chỗ */
+.desk .top { padding-right: 96px; }
+
+/* Chú thích dưới bảng */
+.note { display: flex; flex-wrap: wrap; gap: 10px 28px; margin-top: 12px; }
+.note-sec { min-width: 0; }
+.note-h { font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.note b { color: var(--text); font-weight: 600; }
+.c-up { color: var(--up); }
+.c-down { color: var(--down); }
