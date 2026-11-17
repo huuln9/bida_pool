@@ -1,0 +1,18 @@
+name = "bida-pool"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+# Giao diện Mini App (thư mục public) được phục vụ chung với API.
+[assets]
+directory = "./public"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*", "/bot/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "bida-pool"
+# Thay bằng Database ID lấy trên trang D1 của Cloudflare.
+database_id = "00000000-0000-0000-0000-000000000000"
+
+# Biến bí mật (BOT_TOKEN, WEBHOOK_SECRET, ADMIN_IDS) đặt trên Cloudflare:
+# Workers & Pages > bida-pool > Settings > Variables and Secrets.

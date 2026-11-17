@@ -1,0 +1,381 @@
+"use strict";
+
+const tg = window.Telegram?.WebApp;
+const inTelegram = !!tg?.initData;
+if (tg) {
+  tg.ready();
+  tg.expand();
+  if (inTelegram) document.documentElement.classList.add("tg");
+}
+
+const $ = (sel) => document.querySelector(sel);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+const state = { isAdmin: false, players: [], sessions: [], editingId: null };
+
+// ---------- API ----------
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: {
+      "content-type": "application/json",
+      "x-telegram-init-data": tg?.initData ?? "",
+      ...(opts.headers || {}),
+    },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Lỗi ${res.status}`);
+  return data;
+}
+
+function toast(msg) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => (t.hidden = true), 2200);
+}
+
+function confirmBox(msg) {
+  return new Promise((resolve) => {
+    if (inTelegram && tg.showConfirm) tg.showConfirm(msg, resolve);
+    else resolve(window.confirm(msg));
+  });
+}
+
+function haptic(type = "success") {
+  try { tg?.HapticFeedback?.notificationOccurred(type); } catch {}
+}
+
+// ---------- tabs ----------
+function showTab(name) {
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === name));
+  document.querySelectorAll("main > section").forEach((s) => (s.hidden = s.id !== "tab-" + name));
+  if (name === "board") loadBoard();
+  if (name === "sessions") loadSessions();
+  if (name === "entry" && state.editingId == null) resetEntry();
+  if (name === "players") renderPlayers();
+}
+$("#tabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-tab]");
+  if (b) showTab(b.dataset.tab);
+});
+
+// ---------- bảng xếp hạng ----------
+const badges = (ranks) => ranks.map((r) => `<span class="r">${r}</span>`).join("");
+const fmtDate = (d) => (d ? d.split("-").reverse().join("/") : "");
+
+async function loadBoard() {
+  const lb = $("#lb");
+  try {
+    const { rows, latest, sessionCount } = await api("/api/leaderboard");
+    $("#board-sub").textContent = latest ? `Sau ${sessionCount} buổi · gần nhất ${fmtDate(latest.date)}` : "Chưa có buổi nào.";
+
+    // Ký hiệu ghi chú: (*), (**), ...
+    const marks = new Map();
+    rows.filter((r) => r.note).forEach((r, i) => marks.set(r.player_id, "(" + "*".repeat(i + 1) + ")"));
+
+    const rankMark = (r) =>
+      r.rank_delta > 0 ? `<span class="ru">▲${r.rank_delta}</span>` : r.rank_delta < 0 ? `<span class="rd">▼${-r.rank_delta}</span>` : "";
+    const ptsMark = (r) => (r.points_delta > 0 ? `<td class="up">▲${r.points_delta}</td>` : `<td class="z">${r.points_delta == null ? "" : "–"}</td>`);
+
+    lb.innerHTML = `
+      <thead><tr>
+        <th>#</th><th class="n">Player</th><th>Game<br>Play</th><th>Win</th><th>Lose</th><th>Win<br>%</th>
+        <th class="g">L.<br>Play</th><th>L.<br>Win</th><th>L.<br>Rank</th><th>L.<br>Pts</th>
+        <th class="g">C.<br>Play</th><th>C.<br>Win</th><th>C.<br>Rank</th><th>C.<br>Pts</th><th class="g">Pts</th><th></th>
+      </tr></thead>
+      <tbody>${rows
+        .map(
+          (r) => `<tr>
+        <td>${r.rank}</td>
+        <td class="n">${esc(r.name)}${marks.has(r.player_id) ? " " + marks.get(r.player_id) : ""}${rankMark(r)}</td>
+        <td>${r.games}</td><td>${r.win}</td><td>${r.lose}</td><td>${r.win_rate.toFixed(1)}</td>
+        <td class="g">${r.league_played}</td><td>${r.league_win}</td><td>${badges(r.league_ranks)}</td><td>${r.league_pts}</td>
+        <td class="g">${r.cup_played}</td><td>${r.cup_win}</td><td>${badges(r.cup_ranks)}</td><td>${r.cup_pts}</td>
+        <td class="g p">${r.points}</td>${ptsMark(r)}
+      </tr>`,
+        )
+        .join("")}</tbody>`;
+
+    const notes = rows.filter((r) => r.note).map((r) => `${marks.get(r.player_id)} ${esc(r.note)}`);
+    $("#lb-note").innerHTML = [
+      "L. = League · C. = Cup · Pts = Points · Rank: lần gần nhất → lần trước",
+      ...notes,
+      "Cách tính điểm: thắng 1 trận +1 · League và Cup: Top 1 +3 · Top 2 +2 · Top 3 +1 · Top 4 +0",
+      "Pts = Win + L. Pts + C. Pts · ▲▼ so với trước buổi gần nhất",
+    ].join("<br>");
+  } catch (e) {
+    lb.innerHTML = "";
+    $("#board-sub").textContent = "Không tải được: " + e.message;
+  }
+}
+
+// ---------- các buổi ----------
+async function loadSessions() {
+  const box = $("#session-list");
+  try {
+    [state.sessions] = await Promise.all([api("/api/sessions"), loadPlayers()]);
+    const name = (id) => state.players.find((p) => p.id === id)?.name ?? "?";
+    if (!state.sessions.length) {
+      box.innerHTML = `<p class="hint">Chưa có buổi nào.</p>`;
+      return;
+    }
+    box.innerHTML = state.sessions
+      .map((s, i) => {
+        const league = s.results.filter((r) => r.type === "LEAGUE").sort((a, b) => b.win - a.win);
+        const ranks = denseRanks(league.map((r) => r.win));
+        const cup = s.results.filter((r) => r.type === "CUP").sort((a, b) => a.rank - b.rank);
+        return `<div class="card">
+          <h3><span>Buổi ${state.sessions.length - i} · ${fmtDate(s.date)}</span>
+            <span class="btns admin-only">
+              <button class="mini" data-edit="${s.id}">Sửa</button>
+              <button class="mini danger" data-del="${s.id}">Xoá</button>
+            </span></h3>
+          ${league.length ? `<p><span class="lbl">League:</span> ${league.map((r, j) => `${ranks[j]}. ${esc(name(r.player_id))} ${r.win}-${r.lose}`).join(" · ")}</p>` : ""}
+          ${cup.length ? `<p><span class="lbl">Cup:</span> ${cup.map((r) => `${r.rank}. ${esc(name(r.player_id))}`).join(" · ")}</p>` : ""}
+        </div>`;
+      })
+      .join("");
+  } catch (e) {
+    box.innerHTML = `<p class="err">${esc(e.message)}</p>`;
+  }
+}
+
+$("#session-list").addEventListener("click", async (e) => {
+  const edit = e.target.closest("[data-edit]");
+  const del = e.target.closest("[data-del]");
+  if (edit) {
+    const s = state.sessions.find((x) => x.id === Number(edit.dataset.edit));
+    if (s) startEdit(s);
+  }
+  if (del) {
+    const s = state.sessions.find((x) => x.id === Number(del.dataset.del));
+    if (!(await confirmBox(`Xoá buổi ${fmtDate(s?.date)}? Không hoàn tác được.`))) return;
+    try {
+      await api(`/api/sessions/${del.dataset.del}`, { method: "DELETE" });
+      haptic();
+      toast("Đã xoá");
+      loadSessions();
+    } catch (err) {
+      toast(err.message);
+    }
+  }
+});
+
+function denseRanks(sortedDesc) {
+  let rank = 0, prev;
+  return sortedDesc.map((v) => (v !== prev ? ((prev = v), ++rank) : rank));
+}
+
+// ---------- nhập buổi ----------
+const CUP_DEFAULT = { 1: [2, 0], 2: [1, 1], 3: [1, 1] };
+
+function renderEntryRows(existing) {
+  const players = [...state.players].sort((a, b) => a.name.localeCompare(b.name, "vi"));
+  const get = (type, id) => existing?.find((r) => r.type === type && r.player_id === id);
+  const n = players.length;
+
+  $("#league-rows").innerHTML =
+    `<div></div><div class="h">Thắng</div><div class="h">Thua</div><div class="h">Hạng</div>` +
+    players
+      .map((p) => {
+        const r = get("LEAGUE", p.id);
+        return `<div class="nm">${esc(p.name)}</div>
+        <input type="number" inputmode="numeric" min="0" max="999" data-l-win="${p.id}" value="${r ? r.win : ""}" />
+        <input type="number" inputmode="numeric" min="0" max="999" data-l-lose="${p.id}" value="${r ? r.lose : ""}" />
+        <div class="rk" data-l-rank="${p.id}"></div>`;
+      })
+      .join("");
+
+  const opts = (sel) =>
+    `<option value="">–</option>` +
+    Array.from({ length: Math.max(4, n) }, (_, i) => `<option value="${i + 1}" ${sel === i + 1 ? "selected" : ""}>${i + 1}</option>`).join("");
+  $("#cup-rows").innerHTML =
+    `<div></div><div class="h">Hạng</div><div class="h">Thắng</div><div class="h">Thua</div>` +
+    players
+      .map((p) => {
+        const r = get("CUP", p.id);
+        return `<div class="nm">${esc(p.name)}</div>
+        <select data-c-rank="${p.id}">${opts(r?.rank)}</select>
+        <input type="number" inputmode="numeric" min="0" max="999" data-c-win="${p.id}" value="${r ? r.win : ""}" />
+        <input type="number" inputmode="numeric" min="0" max="999" data-c-lose="${p.id}" value="${r ? r.lose : ""}" />`;
+      })
+      .join("");
+  updateLeaguePreview();
+}
+
+function updateLeaguePreview() {
+  const entries = [...document.querySelectorAll("[data-l-win]")]
+    .map((el) => ({ id: el.dataset.lWin, win: el.value === "" ? null : Number(el.value) }))
+    .filter((x) => x.win != null);
+  const sorted = [...entries].sort((a, b) => b.win - a.win);
+  const ranks = denseRanks(sorted.map((x) => x.win));
+  document.querySelectorAll("[data-l-rank]").forEach((el) => (el.textContent = ""));
+  sorted.forEach((x, i) => {
+    const el = document.querySelector(`[data-l-rank="${x.id}"]`);
+    if (el) el.textContent = ranks[i];
+  });
+  $("#league-preview").textContent = entries.length ? "Hạng League tự tính theo số trận thắng, bằng nhau thì đồng hạng." : "";
+}
+
+$("#league-rows").addEventListener("input", updateLeaguePreview);
+$("#cup-rows").addEventListener("change", (e) => {
+  const id = e.target.dataset.cRank;
+  if (!id) return;
+  const rank = Number(e.target.value);
+  const [w, l] = rank ? CUP_DEFAULT[rank] ?? [0, 2] : ["", ""];
+  document.querySelector(`[data-c-win="${id}"]`).value = w;
+  document.querySelector(`[data-c-lose="${id}"]`).value = l;
+});
+
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+async function resetEntry() {
+  state.editingId = null;
+  $("#entry-cancel").hidden = true;
+  $("#entry-submit").textContent = "Lưu buổi chơi";
+  $("#entry-err").textContent = "";
+  $("#date").value = todayStr();
+  await loadPlayers();
+  renderEntryRows(null);
+}
+
+async function startEdit(s) {
+  state.editingId = s.id;
+  await loadPlayers();
+  showTab("entry");
+  $("#entry-cancel").hidden = false;
+  $("#entry-submit").textContent = "Cập nhật buổi";
+  $("#entry-err").textContent = "";
+  $("#date").value = s.date;
+  renderEntryRows(s.results);
+}
+$("#entry-cancel").addEventListener("click", () => {
+  resetEntry();
+  showTab("sessions");
+});
+
+function readEntry() {
+  const num = (el) => (el.value === "" ? null : Number(el.value));
+  const league = [];
+  for (const p of state.players) {
+    const w = num(document.querySelector(`[data-l-win="${p.id}"]`));
+    const l = num(document.querySelector(`[data-l-lose="${p.id}"]`));
+    if (w == null && l == null) continue;
+    if (w == null || l == null) throw new Error(`League: ${p.name} cần nhập đủ thắng và thua.`);
+    league.push({ player_id: p.id, win: w, lose: l });
+  }
+  const cup = [];
+  for (const p of state.players) {
+    const rank = num(document.querySelector(`[data-c-rank="${p.id}"]`));
+    if (rank == null) continue;
+    const w = num(document.querySelector(`[data-c-win="${p.id}"]`));
+    const l = num(document.querySelector(`[data-c-lose="${p.id}"]`));
+    cup.push({ player_id: p.id, rank, win: w ?? undefined, lose: l ?? undefined });
+  }
+  if (!league.length && !cup.length) throw new Error("Chưa nhập kết quả nào.");
+  return { date: $("#date").value, league, cup };
+}
+
+$("#entry").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("#entry-err").textContent = "";
+  let body;
+  try {
+    body = readEntry();
+  } catch (err) {
+    $("#entry-err").textContent = err.message;
+    return;
+  }
+  const editing = state.editingId != null;
+  const msg = `${editing ? "Cập nhật" : "Lưu"} buổi ${fmtDate(body.date)}: League ${body.league.length} người, Cup ${body.cup.length} người?`;
+  if (!(await confirmBox(msg))) return;
+  try {
+    await api(editing ? `/api/sessions/${state.editingId}` : "/api/sessions", { method: editing ? "PUT" : "POST", body });
+    haptic();
+    toast(editing ? "Đã cập nhật" : "Đã lưu");
+    state.editingId = null;
+    showTab("board");
+  } catch (err) {
+    haptic("error");
+    $("#entry-err").textContent = err.message;
+  }
+});
+
+// ---------- cơ thủ ----------
+async function loadPlayers() {
+  state.players = await api("/api/players");
+  return state.players;
+}
+
+async function renderPlayers() {
+  await loadPlayers();
+  $("#player-list").innerHTML = state.players
+    .map(
+      (p) => `<div class="player">
+      <input value="${esc(p.name)}" data-pname="${p.id}" maxlength="40" />
+      <input value="${esc(p.note ?? "")}" data-pnote="${p.id}" placeholder="Ghi chú" maxlength="40" />
+      <button class="mini" data-psave="${p.id}">Lưu</button>
+      <button class="mini danger" data-pdel="${p.id}">Xoá</button>
+    </div>`,
+    )
+    .join("");
+}
+
+$("#player-list").addEventListener("click", async (e) => {
+  const save = e.target.closest("[data-psave]");
+  const del = e.target.closest("[data-pdel]");
+  $("#player-err").textContent = "";
+  try {
+    if (save) {
+      const id = save.dataset.psave;
+      await api(`/api/players/${id}`, {
+        method: "PUT",
+        body: { name: $(`[data-pname="${id}"]`).value, note: $(`[data-pnote="${id}"]`).value },
+      });
+      toast("Đã lưu");
+    }
+    if (del) {
+      const id = del.dataset.pdel;
+      if (!(await confirmBox("Xoá cơ thủ này?"))) return;
+      await api(`/api/players/${id}`, { method: "DELETE" });
+      toast("Đã xoá");
+      renderPlayers();
+    }
+  } catch (err) {
+    $("#player-err").textContent = err.message;
+  }
+});
+
+$("#player-add").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("#player-err").textContent = "";
+  try {
+    await api("/api/players", { method: "POST", body: { name: $("#new-name").value, note: $("#new-note").value } });
+    $("#new-name").value = "";
+    $("#new-note").value = "";
+    toast("Đã thêm");
+    renderPlayers();
+  } catch (err) {
+    $("#player-err").textContent = err.message;
+  }
+});
+
+// ---------- khởi động ----------
+(async function init() {
+  try {
+    const me = await api("/api/me");
+    state.isAdmin = me.isAdmin;
+    document.body.classList.toggle("admin", me.isAdmin);
+    const name = me.user ? me.user.first_name || me.user.username : "";
+    $("#who").textContent = me.isAdmin ? `${name} · admin` : name ? `${name} · chỉ xem` : "Chỉ xem";
+  } catch {
+    $("#who").textContent = "Chỉ xem";
+  }
+  showTab("board");
+})();
