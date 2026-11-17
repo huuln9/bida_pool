@@ -76,6 +76,7 @@ function showTab(name) {
   document.querySelectorAll("main > section").forEach((s) => (s.hidden = s.id !== "tab-" + name));
   if (name === "board") loadBoard();
   if (name === "podium") loadPodium();
+  if (name === "achv") loadAchievements();
   if (name === "sessions") loadSessions();
   if (name === "entry" && state.editingId == null) resetEntry();
   if (name === "players") renderPlayers();
@@ -88,7 +89,9 @@ $("#tabs").addEventListener("click", (e) => {
 // ---------- bảng xếp hạng ----------
 // Chỉ hiện hạng của 3 giải gần nhất
 const RANK_HISTORY = 3;
-const badges = (ranks) => ranks.slice(0, RANK_HISTORY).map((r) => `<span class="r">${r}</span>`).join("");
+const badges = (ranks) =>
+  ranks.slice(0, RANK_HISTORY).map((r) => `<span class="r r${Math.min(r, 4)}">${r}</span>`).join("");
+const rateCls = (v) => (v >= 60 ? "hi" : v >= 50 ? "mid" : v >= 40 ? "lo" : "bad");
 const fmtDate = (d) => (d ? d.split("-").reverse().join("/") : "");
 
 async function loadBoard() {
@@ -106,20 +109,27 @@ async function loadBoard() {
     const ptsMark = (r) => (r.points_delta > 0 ? `<td class="up">▲${r.points_delta}</td>` : `<td class="z">${r.points_delta == null ? "" : "–"}</td>`);
 
     lb.innerHTML = `
-      <thead><tr>
+      <thead>
+        <tr class="grp">
+          <th colspan="6"></th>
+          <th colspan="4" class="g lg">League</th>
+          <th colspan="4" class="g cp">Cup</th>
+          <th colspan="2" class="g pt">Tổng</th>
+        </tr>
+        <tr>
         <th>Total<br>Rank</th><th class="n">Player</th><th>Game<br>Play</th><th>Win</th><th>Lose</th><th>Win<br>%</th>
-        <th class="g">L.<br>Play</th><th>L.<br>Win</th><th>L.<br>Rank</th><th>L.<br>Pts</th>
-        <th class="g">C.<br>Play</th><th>C.<br>Win</th><th>C.<br>Rank</th><th>C.<br>Pts</th><th class="g">Pts</th><th></th>
+        <th class="g lg">L.<br>Play</th><th class="lg">L.<br>Win</th><th class="lg">L.<br>Rank</th><th class="lg">L.<br>Pts</th>
+        <th class="g cp">C.<br>Play</th><th class="cp">C.<br>Win</th><th class="cp">C.<br>Rank</th><th class="cp">C.<br>Pts</th><th class="g pt">Pts</th><th class="pt"></th>
       </tr></thead>
       <tbody>${rows
         .map(
-          (r) => `<tr>
-        <td>${r.rank}</td>
-        <td class="n">${esc(r.name)}${marks.has(r.player_id) ? " " + marks.get(r.player_id) : ""}${rankMark(r)}</td>
-        <td>${r.games}</td><td>${r.win}</td><td>${r.lose}</td><td>${r.win_rate.toFixed(1)}</td>
-        <td class="g">${r.league_played}</td><td>${r.league_win}</td><td class="rk">${badges(r.league_ranks)}</td><td>${r.league_pts}</td>
-        <td class="g">${r.cup_played}</td><td>${r.cup_win}</td><td class="rk">${badges(r.cup_ranks)}</td><td>${r.cup_pts}</td>
-        <td class="g p">${r.points}</td>${ptsMark(r)}
+          (r) => `<tr class="${r.rank <= 3 ? "medal m" + r.rank : ""}">
+        <td><span class="tr tr${Math.min(r.rank, 4)}">${r.rank}</span></td>
+        <td class="n">${esc(r.name)}${marks.has(r.player_id) ? ` <span class="mk">${marks.get(r.player_id)}</span>` : ""}${rankMark(r)}</td>
+        <td>${r.games}</td><td class="w">${r.win}</td><td class="l">${r.lose}</td><td><span class="wr ${rateCls(r.win_rate)}">${r.win_rate.toFixed(1)}</span></td>
+        <td class="g lg">${r.league_played}</td><td class="lg">${r.league_win || "·"}</td><td class="rk lg">${badges(r.league_ranks)}</td><td class="lg b">${r.league_pts}</td>
+        <td class="g cp">${r.cup_played}</td><td class="cp">${r.cup_win || "·"}</td><td class="rk cp">${badges(r.cup_ranks)}</td><td class="cp b">${r.cup_pts}</td>
+        <td class="g p pt"><span class="pts">${r.points}</span></td>${ptsMark(r).replace("<td class=\"", "<td class=\"pt ")}
       </tr>`,
         )
         .join("")}</tbody>`;
@@ -139,6 +149,7 @@ async function loadBoard() {
       sec("Ký hiệu", [
         "L. = League · C. = Cup · Pts = Points",
         `Rank: hạng ${RANK_HISTORY} giải gần nhất, mới nhất → cũ nhất`,
+        `Màu hạng: <span class="r r1">1</span> vàng · <span class="r r2">2</span> bạc · <span class="r r3">3</span> đồng`,
         `<span class="c-up">▲</span><span class="c-down">▼</span> cạnh tên: lên / xuống hạng so với giải trước`,
         `<span class="c-up">▲</span> cạnh Pts: số điểm tăng so với giải trước`,
       ]),
@@ -156,35 +167,96 @@ async function loadBoard() {
 }
 
 // ---------- bục vinh danh ----------
-// Ảnh cố định theo tên cơ thủ (thư mục public/img). Người không có ảnh sẽ hiện chữ cái đầu.
-const AVATARS = { "An": "an.png", "Chang": "chang.png", "Hữu": "huu.png", "Loan": "loan.png", "Đức": "duc.png" };
-const avatar = (r, cls = "") =>
-  AVATARS[r.name]
-    ? `<img class="av ${cls}" src="img/${AVATARS[r.name]}" alt="${esc(r.name)}" />`
-    : `<div class="av av-txt ${cls}">${esc(r.name.charAt(0))}</div>`;
+// Ảnh đại diện admin tải lên trong tab Cơ thủ (lưu trong D1). Chưa có ảnh thì hiện chữ cái đầu của tên.
+function avatarUrl(id, name, version) {
+  return version ? `/api/avatar/${id}?v=${encodeURIComponent(version)}` : null;
+}
+function avatarHtml(id, name, version, cls = "") {
+  const url = avatarUrl(id, name, version);
+  return url
+    ? `<img class="av ${cls}" src="${url}" alt="${esc(name)}" />`
+    : `<div class="av av-txt ${cls}">${esc(name.charAt(0))}</div>`;
+}
 
+// Đương kim vô địch: bục League và bục Cup của giải gần nhất có thể thức đó
 async function loadPodium() {
   const box = $("#podium");
   try {
-    const { rows, latest, sessionCount } = await api("/api/leaderboard");
-    $("#podium-sub").textContent = latest ? `Sau ${sessionCount} giải · gần nhất ${fmtDate(latest.date)}` : "Chưa có giải nào.";
-    if (!rows.length) return (box.innerHTML = "");
-    const byRank = (k) => rows.filter((r) => r.rank === k);
-    const fig = (r) => `<div class="fig">${avatar(r)}<div class="fig-n">${esc(r.name)}</div><div class="fig-p">${r.points} điểm</div></div>`;
-    // Thứ tự trên bục: hạng 2 bên trái, hạng 1 giữa, hạng 3 bên phải
-    const step = (k) => {
-      const list = byRank(k);
-      return `<div class="col col-${k}">
-        <div class="figs">${k === 1 && list.length ? '<div class="crown">👑</div>' : ""}${list.map(fig).join("")}</div>
-        <div class="step step-${k}"><span>${k}</span></div>
+    const [sessions, players] = await Promise.all([api("/api/sessions"), loadPlayers()]);
+    const pl = new Map(players.map((p) => [p.id, p]));
+    const person = (id) => pl.get(id) ?? { id, name: "?", avatar_v: null };
+    const av = (id, cls = "") => avatarHtml(id, person(id).name, person(id).avatar_v, cls);
+
+    // sessions đã sắp mới nhất trước
+    const lastLeague = sessions.find((s) => s.results.some((r) => r.type === "LEAGUE"));
+    const lastCup = sessions.find((s) => s.results.some((r) => r.type === "CUP"));
+    if (!lastLeague && !lastCup) return (box.innerHTML = `<p class="hint">Chưa có giải nào.</p>`);
+
+    const leagueEntries = (s) => {
+      const list = s.results.filter((r) => r.type === "LEAGUE").sort((a, b) => b.win - a.win);
+      const ranks = denseRanks(list.map((r) => r.win));
+      return list.map((r, i) => ({ ...r, rank: ranks[i] }));
+    };
+    const cupEntries = (s) => s.results.filter((r) => r.type === "CUP").sort((a, b) => a.rank - b.rank);
+
+    const stage = (title, cls, s, entries) => {
+      if (!s) return "";
+      const byRank = (k) => entries.filter((e) => e.rank === k);
+      const fig = (e) =>
+        `<div class="fig">${av(e.player_id)}<div class="fig-n">${esc(person(e.player_id).name)}</div><div class="fig-p">${e.win}-${e.lose}</div></div>`;
+      const step = (k) => {
+        const list = byRank(k);
+        return `<div class="col col-${k}">
+          <div class="figs">${k === 1 && list.length ? '<div class="crown">🏆</div>' : ""}${list.map(fig).join("")}</div>
+          <div class="step step-${k}"><span>${k}</span></div>
+        </div>`;
+      };
+      const rest = entries.filter((e) => e.rank > 3);
+      return `<div class="champ ${cls}">
+        <div class="champ-h"><span class="champ-t">${title}</span><span class="champ-d">Giải ${fmtDate(s.date)}</span></div>
+        <div class="stage">${step(2)}${step(1)}${step(3)}</div>
+        ${rest.length ? `<div class="rest">${rest
+          .map((e) => `<div class="rest-i"><span class="rest-k">${e.rank}</span>${av(e.player_id, "sm")}<span class="rest-n">${esc(person(e.player_id).name)}</span><span class="rest-p">${e.win}-${e.lose}</span></div>`)
+          .join("")}</div>` : ""}
       </div>`;
     };
-    const rest = rows.filter((r) => r.rank > 3);
-    box.innerHTML = `
-      <div class="stage">${step(2)}${step(1)}${step(3)}</div>
-      ${rest.length ? `<div class="rest">${rest
-        .map((r) => `<div class="rest-i"><span class="rest-k">${r.rank}</span>${avatar(r, "sm")}<span class="rest-n">${esc(r.name)}</span><span class="rest-p">${r.points} điểm</span></div>`)
-        .join("")}</div>` : ""}`;
+
+    box.innerHTML =
+      stage("League", "champ-l", lastLeague, lastLeague ? leagueEntries(lastLeague) : []) +
+      stage("Cup", "champ-c", lastCup, lastCup ? cupEntries(lastCup) : []);
+  } catch (e) {
+    box.innerHTML = `<p class="err">${esc(e.message)}</p>`;
+  }
+}
+
+// ---------- thành tích ----------
+// Mỗi lần vô địch League hoặc Cup = 1 sao vàng
+async function loadAchievements() {
+  const box = $("#achv");
+  try {
+    const { rows, avatars = {} } = await api("/api/leaderboard");
+    const list = rows
+      .map((r) => ({ ...r, stars: r.league_win + r.cup_win }))
+      .sort((a, b) => b.stars - a.stars || b.league_win - a.league_win || a.rank - b.rank);
+    const ranks = denseRanks(list.map((r) => r.stars));
+    box.innerHTML = list
+      .map((r, i) => {
+        const stars = r.stars ? `<span class="stars">${"★".repeat(r.stars)}</span>` : `<span class="no-star">Chưa có danh hiệu</span>`;
+        const detail = r.stars
+          ? (r.league_win ? `<span class="tag tag-l">League ×${r.league_win}</span>` : "") +
+            (r.cup_win ? `<span class="tag tag-c">Cup ×${r.cup_win}</span>` : "")
+          : "";
+        return `<div class="ach ${r.stars ? "" : "ach-0"}">
+          <span class="ach-k tr tr${r.stars ? Math.min(ranks[i], 4) : 4}">${ranks[i]}</span>
+          ${avatarHtml(r.player_id, r.name, avatars[r.player_id], "sm")}
+          <div class="ach-b">
+            <div class="ach-n">${esc(r.name)} <span class="ach-c">${r.stars} sao</span></div>
+            <div class="ach-s">${stars}</div>
+            <div class="ach-d">${detail}</div>
+          </div>
+        </div>`;
+      })
+      .join("");
   } catch (e) {
     box.innerHTML = `<p class="err">${esc(e.message)}</p>`;
   }
@@ -396,6 +468,10 @@ async function renderPlayers() {
   $("#player-list").innerHTML = state.players
     .map(
       (p) => `<div class="player">
+      <div class="av-edit">
+        <button type="button" class="av-btn" data-pav="${p.id}" title="Đổi ảnh">${avatarHtml(p.id, p.name, p.avatar_v, "sm")}</button>
+        ${p.avatar_v ? `<button type="button" class="av-x" data-pavdel="${p.id}" title="Xoá ảnh">✕</button>` : ""}
+      </div>
       <input value="${esc(p.name)}" data-pname="${p.id}" maxlength="40" />
       <textarea rows="1" data-pnote="${p.id}" placeholder="Ghi chú">${esc(p.note ?? "")}</textarea>
       <button class="mini" data-psave="${p.id}">Lưu</button>
@@ -414,11 +490,69 @@ $("#tab-players").addEventListener("input", (e) => {
   if (e.target.tagName === "TEXTAREA") autoGrow(e.target);
 });
 
+// Thu nhỏ ảnh về tối đa 256px trước khi tải lên (giữ nền trong suốt)
+function resizeImage(file, max = 256) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * k);
+      c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      let data = c.toDataURL("image/webp", 0.9);
+      if (!data.startsWith("data:image/webp")) data = c.toDataURL("image/png");
+      resolve(data);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Không đọc được ảnh này."));
+    };
+    img.src = url;
+  });
+}
+
+let avatarTarget = null;
+const avatarInput = document.createElement("input");
+avatarInput.type = "file";
+avatarInput.accept = "image/*";
+avatarInput.addEventListener("change", async () => {
+  const file = avatarInput.files[0];
+  avatarInput.value = "";
+  if (!file || avatarTarget == null) return;
+  $("#player-err").textContent = "";
+  try {
+    const data = await resizeImage(file);
+    await api(`/api/players/${avatarTarget}/avatar`, { method: "POST", body: { data } });
+    haptic();
+    toast("Đã cập nhật ảnh");
+    renderPlayers();
+  } catch (err) {
+    $("#player-err").textContent = err.message;
+  }
+});
+
 $("#player-list").addEventListener("click", async (e) => {
   const save = e.target.closest("[data-psave]");
   const del = e.target.closest("[data-pdel]");
+  const av = e.target.closest("[data-pav]");
+  const avDel = e.target.closest("[data-pavdel]");
   $("#player-err").textContent = "";
+  if (av) {
+    avatarTarget = av.dataset.pav;
+    avatarInput.click();
+    return;
+  }
   try {
+    if (avDel) {
+      if (!(await confirmBox("Xoá ảnh đại diện của cơ thủ này?"))) return;
+      await api(`/api/players/${avDel.dataset.pavdel}/avatar`, { method: "DELETE" });
+      toast("Đã xoá ảnh");
+      renderPlayers();
+      return;
+    }
     if (save) {
       const id = save.dataset.psave;
       await api(`/api/players/${id}`, {

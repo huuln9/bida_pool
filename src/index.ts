@@ -83,13 +83,34 @@ async function loadAll(db: D1Database) {
   return { players: p.results, sessions: s.results, results: r.results };
 }
 
+/** Phiên bản ảnh đại diện của từng cơ thủ: { player_id: updated_at }. Trống nếu chưa tạo bảng avatars. */
+async function avatarVersions(db: D1Database): Promise<Record<number, string>> {
+  try {
+    const r = await db.prepare("SELECT player_id, updated_at FROM avatars").all<{ player_id: number; updated_at: string }>();
+    return Object.fromEntries(r.results.map((a) => [a.player_id, a.updated_at]));
+  } catch {
+    return {};
+  }
+}
+
 async function leaderboard(env: Env) {
   const { players, sessions, results } = await loadAll(env.DB);
   return {
     rows: computeLeaderboard(players, sessions, results),
     latest: sessions[sessions.length - 1] ?? null,
     sessionCount: sessions.length,
+    avatars: await avatarVersions(env.DB),
   };
+}
+
+const AVATAR_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const AVATAR_MAX_BYTES = 400 * 1024;
+
+function b64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
 }
 
 interface SessionInput {
@@ -146,9 +167,53 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
     return json(await leaderboard(env));
   }
 
+  // --- ảnh đại diện ---
+  if ((m = path.match(/^\/api\/avatar\/(\d+)$/)) && method === "GET") {
+    let row: { mime: string; data: string } | null = null;
+    try {
+      row = await db.prepare("SELECT mime, data FROM avatars WHERE player_id = ?").bind(Number(m[1])).first();
+    } catch {}
+    if (!row) return new Response("Not found", { status: 404 });
+    return new Response(b64ToBytes(row.data), {
+      headers: { "content-type": row.mime, "cache-control": "public, max-age=31536000, immutable" },
+    });
+  }
+  if ((m = path.match(/^\/api\/players\/(\d+)\/avatar$/))) {
+    requireAdmin(auth);
+    const id = Number(m[1]);
+    const exists = await db.prepare("SELECT id FROM players WHERE id = ?").bind(id).first();
+    if (!exists) throw new HttpError(404, "Không tìm thấy cơ thủ.");
+    if (method === "POST") {
+      const match = String(body?.data ?? "").match(/^data:(image\/[a-z]+);base64,([A-Za-z0-9+/=]+)$/);
+      if (!match || !AVATAR_TYPES.includes(match[1])) throw new HttpError(400, "Ảnh phải là PNG, JPG hoặc WebP.");
+      if (match[2].length * 0.75 > AVATAR_MAX_BYTES) throw new HttpError(400, "Ảnh quá lớn (tối đa 400 KB).");
+      try {
+        await db
+          .prepare(
+            "INSERT INTO avatars (player_id, mime, data, updated_at) VALUES (?, ?, ?, datetime('now')) " +
+              "ON CONFLICT(player_id) DO UPDATE SET mime = excluded.mime, data = excluded.data, updated_at = excluded.updated_at",
+          )
+          .bind(id, match[1], match[2])
+          .run();
+      } catch (e) {
+        if (String(e).includes("no such table")) {
+          throw new HttpError(500, "Chưa tạo bảng avatars trong D1. Chạy lệnh SQL trong hướng dẫn trước.");
+        }
+        throw e;
+      }
+      return json({ ok: true });
+    }
+    if (method === "DELETE") {
+      await db.prepare("DELETE FROM avatars WHERE player_id = ?").bind(id).run().catch(() => {});
+      return json({ ok: true });
+    }
+  }
+
   // --- cơ thủ ---
   if (path === "/api/players" && method === "GET") {
-    return json((await db.prepare("SELECT id, name, note FROM players ORDER BY name").all()).results);
+    const players = (await db.prepare("SELECT id, name, note FROM players ORDER BY name").all<Player>()).results;
+    const av = await avatarVersions(db);
+    return json(players.map((p) => ({ ...p, avatar_v: av[p.id] ?? null })));
   }
   if (path === "/api/players" && method === "POST") {
     requireAdmin(auth);
@@ -175,6 +240,7 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
     if (method === "DELETE") {
       const used = await db.prepare("SELECT 1 FROM results WHERE player_id = ? LIMIT 1").bind(id).first();
       if (used) throw new HttpError(409, "Cơ thủ đã có kết quả, không xoá được.");
+      await db.prepare("DELETE FROM avatars WHERE player_id = ?").bind(id).run().catch(() => {});
       await db.prepare("DELETE FROM players WHERE id = ?").bind(id).run();
       return json({ ok: true });
     }

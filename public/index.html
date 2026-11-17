@@ -16,6 +16,7 @@
   <nav class="tabs" id="tabs">
     <button data-tab="board" class="on">Bảng xếp hạng</button>
     <button data-tab="podium">Bục vinh danh</button>
+    <button data-tab="achv">Thành tích</button>
     <button data-tab="sessions">Các giải</button>
     <button data-tab="entry" class="admin-only">Nhập giải</button>
     <button data-tab="players" class="admin-only">Cơ thủ</button>
@@ -29,8 +30,14 @@
     </section>
 
     <section id="tab-podium" hidden>
-      <p class="sub" id="podium-sub"></p>
+      <h2 class="page-t">🏆 Đương kim vô địch</h2>
       <div id="podium"></div>
+    </section>
+
+    <section id="tab-achv" hidden>
+      <h2 class="page-t">⭐ Thành tích</h2>
+      <p class="sub">Mỗi lần vô địch League hoặc Cup được 1 sao.</p>
+      <div id="achv"></div>
     </section>
 
     <section id="tab-sessions" hidden>
@@ -62,11 +69,12 @@
     <section id="tab-players" hidden>
       <div id="player-list"></div>
       <form id="player-add" class="row-form">
+        <div></div>
         <input id="new-name" placeholder="Tên cơ thủ" maxlength="40" required />
         <textarea id="new-note" rows="1" placeholder="Ghi chú"></textarea>
         <button class="primary" type="submit">Thêm</button>
       </form>
-      <p class="hint">Ghi chú: mỗi dòng là 1 ý, Enter để xuống dòng.</p>
+      <p class="hint">Bấm vào ảnh để đổi ảnh đại diện (ảnh tự thu nhỏ). Ghi chú: mỗi dòng là 1 ý, Enter để xuống dòng.</p>
       <p class="err" id="player-err"></p>
     </section>
   </main>
