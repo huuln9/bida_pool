@@ -30,3 +30,6 @@ CREATE INDEX IF NOT EXISTS idx_results_session ON results(session_id);
 
 -- Ảnh đại diện cơ thủ (base64), admin cập nhật trong tab Cơ thủ.
 CREATE TABLE IF NOT EXISTS avatars (player_id INTEGER PRIMARY KEY REFERENCES players(id), mime TEXT NOT NULL, data TEXT NOT NULL, updated_at TEXT NOT NULL DEFAULT (datetime('now')));
+
+-- Người đã mở app từ Telegram (chỉ admin xem).
+CREATE TABLE IF NOT EXISTS visitors (tg_id INTEGER PRIMARY KEY, first_name TEXT, last_name TEXT, username TEXT, photo_url TEXT, visits INTEGER NOT NULL DEFAULT 1, first_seen TEXT NOT NULL DEFAULT (datetime('now')), last_seen TEXT NOT NULL DEFAULT (datetime('now')));

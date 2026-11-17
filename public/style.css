@@ -293,3 +293,10 @@ textarea { resize: none; overflow: hidden; line-height: 1.4; font-family: inheri
   .av { width: 110px; height: 110px; }
   .col-1 .av { width: 140px; height: 140px; }
 }
+
+/* Người đã mở app */
+.vis { background: var(--bg2); margin-top: 4px; }
+.vis td, .vis th { white-space: nowrap; }
+.vis-n { display: inline-flex; align-items: center; gap: 8px; }
+.vis-n img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
+.vis a { color: var(--link); text-decoration: none; }

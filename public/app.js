@@ -79,7 +79,10 @@ function showTab(name) {
   if (name === "achv") loadAchievements();
   if (name === "sessions") loadSessions();
   if (name === "entry" && state.editingId == null) resetEntry();
-  if (name === "players") renderPlayers();
+  if (name === "players") {
+    renderPlayers();
+    loadVisitors();
+  }
 }
 $("#tabs").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-tab]");
@@ -603,6 +606,32 @@ $("#player-add").addEventListener("submit", async (e) => {
     $("#player-err").textContent = err.message;
   }
 });
+
+// ---------- người đã mở app ----------
+const fmtTime = (t) => {
+  const d = new Date(String(t).replace(" ", "T") + "Z");
+  return isNaN(d) ? t : d.toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", year: "numeric" });
+};
+async function loadVisitors() {
+  const box = $("#visitors");
+  try {
+    const list = await api("/api/visitors");
+    $("#visitor-count").textContent = `(${list.length})`;
+    box.innerHTML = `<thead><tr><th class="n">Tên</th><th class="n">Username</th><th>Telegram ID</th><th>Lần mở</th><th>Lần cuối</th></tr></thead>
+      <tbody>${list
+        .map(
+          (v) => `<tr>
+          <td class="n"><span class="vis-n">${v.photo_url ? `<img src="${esc(v.photo_url)}" alt="" />` : ""}${esc([v.first_name, v.last_name].filter(Boolean).join(" ") || "?")}</span></td>
+          <td class="n">${v.username ? `<a href="https://t.me/${esc(v.username)}" target="_blank">@${esc(v.username)}</a>` : "–"}</td>
+          <td>${v.tg_id}</td><td>${v.visits}</td><td>${fmtTime(v.last_seen)}</td>
+        </tr>`,
+        )
+        .join("") || `<tr><td colspan="5" class="hint">Chưa có ai mở app.</td></tr>`}</tbody>`;
+  } catch (e) {
+    $("#visitor-count").textContent = "";
+    box.innerHTML = `<tbody><tr><td class="err">${esc(e.message)}</td></tr></tbody>`;
+  }
+}
 
 // ---------- khởi động ----------
 (async function init() {
