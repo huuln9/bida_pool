@@ -244,18 +244,20 @@ async function loadAchievements() {
     const ranks = denseRanks(list.map((r) => r.stars));
     box.innerHTML = list
       .map((r, i) => {
-        const stars = r.stars ? `<span class="stars">${"★".repeat(r.stars)}</span>` : `<span class="no-star">Chưa có danh hiệu</span>`;
-        const detail = r.stars
-          ? (r.league_win ? `<span class="tag tag-l">League ×${r.league_win}</span>` : "") +
-            (r.cup_win ? `<span class="tag tag-c">Cup ×${r.cup_win}</span>` : "")
-          : "";
-        return `<div class="ach ${r.stars ? "" : "ach-0"}">
-          <span class="ach-k tr tr${r.stars ? Math.min(ranks[i], 4) : 4}">${ranks[i]}</span>
-          ${avatarHtml(r.player_id, r.name, avatars[r.player_id], "sm")}
-          <div class="ach-b">
-            <div class="ach-n">${esc(r.name)} <span class="ach-c">${r.stars} sao</span></div>
-            <div class="ach-s">${stars}</div>
-            <div class="ach-d">${detail}</div>
+        const tier = r.stars ? Math.min(ranks[i], 4) : 4;
+        const stars = r.stars ? "★".repeat(r.stars) : "☆";
+        const detail =
+          (r.league_win ? `<span class="tag tag-l">League ×${r.league_win}</span>` : "") +
+          (r.cup_win ? `<span class="tag tag-c">Cup ×${r.cup_win}</span>` : "");
+        return `<div class="ach ach-t${tier} ${r.stars ? "" : "ach-0"}">
+          <div class="ach-card">
+            <div class="ach-rib">Top ${ranks[i]}</div>
+            <div class="ach-n">${esc(r.name)}</div>
+            <div class="ach-img">${avatarHtml(r.player_id, r.name, avatars[r.player_id], "ach-av")}</div>
+            <div class="ach-box">
+              <div class="ach-s">${stars}</div>
+              <div class="ach-d">${detail}</div>
+            </div>
           </div>
         </div>`;
       })
