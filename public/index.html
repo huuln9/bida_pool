@@ -15,6 +15,7 @@
 
   <nav class="tabs" id="tabs">
     <button data-tab="board" class="on">Bảng xếp hạng</button>
+    <button data-tab="podium">Bục vinh danh</button>
     <button data-tab="sessions">Các giải</button>
     <button data-tab="entry" class="admin-only">Nhập giải</button>
     <button data-tab="players" class="admin-only">Cơ thủ</button>
@@ -25,6 +26,11 @@
       <p class="sub" id="board-sub"></p>
       <div class="scroll"><table class="lb" id="lb"></table></div>
       <div class="note" id="lb-note"></div>
+    </section>
+
+    <section id="tab-podium" hidden>
+      <p class="sub" id="podium-sub"></p>
+      <div id="podium"></div>
     </section>
 
     <section id="tab-sessions" hidden>
@@ -57,9 +63,10 @@
       <div id="player-list"></div>
       <form id="player-add" class="row-form">
         <input id="new-name" placeholder="Tên cơ thủ" maxlength="40" required />
-        <input id="new-note" placeholder="Ghi chú (VD: Bi 8)" maxlength="40" />
+        <textarea id="new-note" rows="1" placeholder="Ghi chú"></textarea>
         <button class="primary" type="submit">Thêm</button>
       </form>
+      <p class="hint">Ghi chú: mỗi dòng là 1 ý, Enter để xuống dòng.</p>
       <p class="err" id="player-err"></p>
     </section>
   </main>

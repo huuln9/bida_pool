@@ -75,6 +75,7 @@ function showTab(name) {
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === name));
   document.querySelectorAll("main > section").forEach((s) => (s.hidden = s.id !== "tab-" + name));
   if (name === "board") loadBoard();
+  if (name === "podium") loadPodium();
   if (name === "sessions") loadSessions();
   if (name === "entry" && state.editingId == null) resetEntry();
   if (name === "players") renderPlayers();
@@ -98,7 +99,7 @@ async function loadBoard() {
 
     // Ký hiệu ghi chú: (*), (**), ...
     const marks = new Map();
-    rows.filter((r) => r.note).forEach((r, i) => marks.set(r.player_id, "(" + "*".repeat(i + 1) + ")"));
+    rows.filter((r) => r.note).forEach((r, i) => marks.set(r.player_id, `(${i + 1})`));
 
     const rankMark = (r) =>
       r.rank_delta > 0 ? `<span class="ru">▲${r.rank_delta}</span>` : r.rank_delta < 0 ? `<span class="rd">▼${-r.rank_delta}</span>` : "";
@@ -106,7 +107,7 @@ async function loadBoard() {
 
     lb.innerHTML = `
       <thead><tr>
-        <th>#</th><th class="n">Player</th><th>Game<br>Play</th><th>Win</th><th>Lose</th><th>Win<br>%</th>
+        <th>Total<br>Rank</th><th class="n">Player</th><th>Game<br>Play</th><th>Win</th><th>Lose</th><th>Win<br>%</th>
         <th class="g">L.<br>Play</th><th>L.<br>Win</th><th>L.<br>Rank</th><th>L.<br>Pts</th>
         <th class="g">C.<br>Play</th><th>C.<br>Win</th><th>C.<br>Rank</th><th>C.<br>Pts</th><th class="g">Pts</th><th></th>
       </tr></thead>
@@ -123,7 +124,15 @@ async function loadBoard() {
         )
         .join("")}</tbody>`;
 
-    const notes = rows.filter((r) => r.note).map((r) => `${marks.get(r.player_id)} ${esc(r.note)}`);
+    const notes = rows
+      .filter((r) => r.note)
+      .map(
+        (r) =>
+          `<div class="pn"><span class="pn-k">${marks.get(r.player_id)}:</span><ul>${r.note
+            .split("\n")
+            .map((l) => `<li>${esc(l)}</li>`)
+            .join("")}</ul></div>`,
+      );
     const sec = (title, lines) =>
       `<div class="note-sec"><div class="note-h">${title}</div>${lines.map((l) => `<div>${l}</div>`).join("")}</div>`;
     $("#lb-note").innerHTML = [
@@ -143,6 +152,41 @@ async function loadBoard() {
   } catch (e) {
     lb.innerHTML = "";
     $("#board-sub").textContent = "Không tải được: " + e.message;
+  }
+}
+
+// ---------- bục vinh danh ----------
+// Ảnh cố định theo tên cơ thủ (thư mục public/img). Người không có ảnh sẽ hiện chữ cái đầu.
+const AVATARS = { "An": "an.png", "Chang": "chang.png", "Hữu": "huu.png", "Loan": "loan.png", "Đức": "duc.png" };
+const avatar = (r, cls = "") =>
+  AVATARS[r.name]
+    ? `<img class="av ${cls}" src="img/${AVATARS[r.name]}" alt="${esc(r.name)}" />`
+    : `<div class="av av-txt ${cls}">${esc(r.name.charAt(0))}</div>`;
+
+async function loadPodium() {
+  const box = $("#podium");
+  try {
+    const { rows, latest, sessionCount } = await api("/api/leaderboard");
+    $("#podium-sub").textContent = latest ? `Sau ${sessionCount} giải · gần nhất ${fmtDate(latest.date)}` : "Chưa có giải nào.";
+    if (!rows.length) return (box.innerHTML = "");
+    const byRank = (k) => rows.filter((r) => r.rank === k);
+    const fig = (r) => `<div class="fig">${avatar(r)}<div class="fig-n">${esc(r.name)}</div><div class="fig-p">${r.points} điểm</div></div>`;
+    // Thứ tự trên bục: hạng 2 bên trái, hạng 1 giữa, hạng 3 bên phải
+    const step = (k) => {
+      const list = byRank(k);
+      return `<div class="col col-${k}">
+        <div class="figs">${k === 1 && list.length ? '<div class="crown">👑</div>' : ""}${list.map(fig).join("")}</div>
+        <div class="step step-${k}"><span>${k}</span></div>
+      </div>`;
+    };
+    const rest = rows.filter((r) => r.rank > 3);
+    box.innerHTML = `
+      <div class="stage">${step(2)}${step(1)}${step(3)}</div>
+      ${rest.length ? `<div class="rest">${rest
+        .map((r) => `<div class="rest-i"><span class="rest-k">${r.rank}</span>${avatar(r, "sm")}<span class="rest-n">${esc(r.name)}</span><span class="rest-p">${r.points} điểm</span></div>`)
+        .join("")}</div>` : ""}`;
+  } catch (e) {
+    box.innerHTML = `<p class="err">${esc(e.message)}</p>`;
   }
 }
 
@@ -353,13 +397,22 @@ async function renderPlayers() {
     .map(
       (p) => `<div class="player">
       <input value="${esc(p.name)}" data-pname="${p.id}" maxlength="40" />
-      <input value="${esc(p.note ?? "")}" data-pnote="${p.id}" placeholder="Ghi chú" maxlength="40" />
+      <textarea rows="1" data-pnote="${p.id}" placeholder="Ghi chú">${esc(p.note ?? "")}</textarea>
       <button class="mini" data-psave="${p.id}">Lưu</button>
       <button class="mini danger" data-pdel="${p.id}">Xoá</button>
     </div>`,
     )
     .join("");
+  document.querySelectorAll("#tab-players textarea").forEach(autoGrow);
 }
+
+function autoGrow(el) {
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + 2 + "px";
+}
+$("#tab-players").addEventListener("input", (e) => {
+  if (e.target.tagName === "TEXTAREA") autoGrow(e.target);
+});
 
 $("#player-list").addEventListener("click", async (e) => {
   const save = e.target.closest("[data-psave]");
@@ -393,6 +446,7 @@ $("#player-add").addEventListener("submit", async (e) => {
     await api("/api/players", { method: "POST", body: { name: $("#new-name").value, note: $("#new-note").value } });
     $("#new-name").value = "";
     $("#new-note").value = "";
+    autoGrow($("#new-note"));
     toast("Đã thêm");
     renderPlayers();
   } catch (err) {
