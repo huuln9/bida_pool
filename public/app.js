@@ -647,9 +647,9 @@ async function loadVisitors() {
     state.isAdmin = me.isAdmin;
     document.body.classList.toggle("admin", me.isAdmin);
     const name = me.user ? me.user.first_name || me.user.username : "";
-    $("#who").textContent = me.isAdmin ? `${name} · admin` : name ? `${name} · chỉ xem` : "Chỉ xem";
+    $("#who").textContent = me.isAdmin ? `${name} · admin` : name ? `${name} · User` : "User";
   } catch {
-    $("#who").textContent = "Chỉ xem";
+    $("#who").textContent = "User";
   }
   showTab("board");
 })();
