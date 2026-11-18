@@ -117,12 +117,12 @@ async function loadBoard() {
           <th colspan="6"></th>
           <th colspan="4" class="g lg">League</th>
           <th colspan="4" class="g cp">Cup</th>
-          <th colspan="2" class="g pt">Tổng</th>
+          <th colspan="2" class="g pt">Total</th>
         </tr>
         <tr>
         <th>Total<br>Rank</th><th class="n">Player</th><th>Game<br>Play</th><th>Win</th><th>Lose</th><th>Win<br>%</th>
-        <th class="g lg">L.<br>Play</th><th class="lg">L.<br>Win</th><th class="lg">L.<br>Rank</th><th class="lg">L.<br>Pts</th>
-        <th class="g cp">C.<br>Play</th><th class="cp">C.<br>Win</th><th class="cp">C.<br>Rank</th><th class="cp">C.<br>Pts</th><th class="g pt">Pts</th><th class="pt"></th>
+        <th class="g lg">Play</th><th class="lg">Win</th><th class="lg">Rank</th><th class="lg">Pts</th>
+        <th class="g cp">Play</th><th class="cp">Win</th><th class="cp">Rank</th><th class="cp">Pts</th><th class="g pt">Pts</th><th class="pt"></th>
       </tr></thead>
       <tbody>${rows
         .map(
@@ -149,17 +149,10 @@ async function loadBoard() {
     const sec = (title, lines) =>
       `<div class="note-sec"><div class="note-h">${title}</div>${lines.map((l) => `<div>${l}</div>`).join("")}</div>`;
     $("#lb-note").innerHTML = [
-      sec("Ký hiệu", [
-        "L. = League · C. = Cup · Pts = Points",
-        `Rank: hạng ${RANK_HISTORY} giải gần nhất, mới nhất → cũ nhất`,
-        `Màu hạng: <span class="r r1">1</span> vàng · <span class="r r2">2</span> bạc · <span class="r r3">3</span> đồng`,
-        `<span class="c-up">▲</span><span class="c-down">▼</span> cạnh tên: lên / xuống hạng so với giải trước`,
-        `<span class="c-up">▲</span> cạnh Pts: số điểm tăng so với giải trước`,
-      ]),
       sec("Cách tính điểm", [
         "Thắng 1 trận: +1",
-        "Hạng League / Cup: Top 1 +3 · Top 2 +2 · Top 3 +1 · Top 4 +0",
-        "<b>Pts = Win + L. Pts + C. Pts</b>",
+        `Hạng League / Cup:<ul class="note-ul"><li>Top 1 +3</li><li>Top 2 +2</li><li>Top 3 +1</li><li>Top 4 +0</li></ul>`,
+        "<b>Pts = Win + League Pts + Cup Pts</b>",
       ]),
       notes.length ? sec("Ghi chú", notes) : "",
     ].join("");

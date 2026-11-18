@@ -142,6 +142,8 @@ textarea { resize: none; overflow: hidden; line-height: 1.4; font-family: inheri
 .pn-k { color: var(--text); font-weight: 600; }
 .pn ul { margin: 0; padding-left: 16px; }
 .pn li { margin: 0; }
+.note-ul { margin: 0; padding-left: 18px; list-style: disc; }
+.note-ul li { margin: 0; }
 
 /* ---------- Bục vinh danh ---------- */
 .stage { display: flex; align-items: flex-end; justify-content: center; gap: 6px; margin-top: 44px; }
