@@ -235,11 +235,11 @@ async function loadPodium() {
 // ---------- thành tích ----------
 // Khung thẻ vẽ sẵn theo hạng; toạ độ các ô (px trên ảnh gốc): [x1, y1, x2, y2]
 const FRAMES = {
-  1: { f: "platinum", w: 241, h: 491, name: [42, 150, 208, 182], img: [46, 204, 200, 374], box: [40, 392, 208, 452] },
-  2: { f: "gold", w: 191, h: 460, name: [22, 140, 168, 176], img: [24, 190, 168, 360], box: [18, 380, 174, 446] },
-  3: { f: "silver", w: 186, h: 440, name: [22, 124, 164, 158], img: [22, 172, 164, 344], box: [16, 362, 168, 424] },
-  4: { f: "bronze", w: 188, h: 436, name: [22, 116, 168, 150], img: [22, 164, 168, 340], box: [16, 360, 170, 422] },
-  5: { f: "wood", w: 185, h: 420, name: [22, 102, 168, 138], img: [22, 154, 168, 320], box: [16, 340, 168, 404] },
+  1: { f: "platinum", w: 241, h: 491, pb: 20, name: [42, 150, 208, 182], img: [46, 204, 200, 374], box: [40, 392, 208, 452] },
+  2: { f: "gold", w: 191, h: 460, pb: 3, name: [22, 140, 168, 176], img: [24, 190, 168, 360], box: [18, 380, 174, 446] },
+  3: { f: "silver", w: 186, h: 440, pb: 2, name: [22, 124, 164, 158], img: [22, 172, 164, 344], box: [16, 362, 168, 424] },
+  4: { f: "bronze", w: 188, h: 436, pb: 4, name: [22, 116, 168, 150], img: [22, 164, 168, 340], box: [16, 360, 170, 422] },
+  5: { f: "wood", w: 185, h: 420, pb: 2, name: [22, 102, 168, 138], img: [22, 154, 168, 320], box: [16, 340, 168, 404] },
 };
 function slotStyle(fr, [x1, y1, x2, y2]) {
   const p = (v, t) => ((v / t) * 100).toFixed(2) + "%";
@@ -263,7 +263,7 @@ async function loadAchievements() {
           (r.league_win ? `<span class="tag tag-l">League ×${r.league_win}</span>` : "") +
           (r.cup_win ? `<span class="tag tag-c">Cup ×${r.cup_win}</span>` : "");
         return `<div class="ach ach-t${tier} ${r.stars ? "" : "ach-0"}">
-          <div class="ach-fr" style="--fw:${fr.w};--fh:${fr.h};background-image:url(img/frames/${fr.f}.png)" aria-label="Top ${ranks[i]}">
+          <div class="ach-fr" style="--fw:${fr.w};--fh:${fr.h};--pb:${fr.pb};background-image:url(img/frames/${fr.f}.png)" aria-label="Top ${ranks[i]}">
             <div class="ach-img" style="${slotStyle(fr, fr.img)}">${avatarHtml(r.player_id, r.name, avatars[r.player_id], "ach-av")}</div>
             <div class="ach-rib" style="${slotStyle(fr, fr.name)}"><span>${esc(r.name)}</span></div>
             <div class="ach-box" style="${slotStyle(fr, fr.box)}">

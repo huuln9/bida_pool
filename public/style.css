@@ -253,7 +253,9 @@ textarea { resize: none; overflow: hidden; line-height: 1.4; font-family: inheri
 .ach { display: flex; justify-content: center; }
 /* Chuẩn hoá theo thân thẻ rộng ~186px: Top 1 (platinum) to hơn chút, phần lấp lánh tràn ra ngoài */
 .ach-fr { position: relative; flex-shrink: 0; width: calc(var(--fw) / 210 * 100%); aspect-ratio: var(--fw) / var(--fh);
-  background: center / 100% 100% no-repeat; container-type: inline-size; --k: calc(191 / var(--fw)); }
+  background: center / 100% 100% no-repeat; container-type: inline-size; --k: calc(191 / var(--fw));
+  /* bù phần trong suốt dưới đáy ảnh (lấp lánh) để đáy các thẻ thẳng hàng */
+  margin-bottom: calc(var(--pb) / -210 * 100%); }
 .ach-t1 .ach-fr { filter: drop-shadow(0 0 10px rgba(150,230,255,.45)); }
 .ach-fr > div { position: absolute; box-sizing: border-box; }
 
@@ -301,7 +303,9 @@ textarea { resize: none; overflow: hidden; line-height: 1.4; font-family: inheri
   #podium { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start; }
   #podium .champ { margin-top: 10px; }
   /* Thẻ giữ kích thước đẹp, giãn khoảng cách cho trải hết chiều ngang */
-  #achv { grid-template-columns: repeat(auto-fit, minmax(180px, 230px)); justify-content: space-between; gap: 28px 16px; }
+  /* 5 thẻ nằm cạnh nhau, căn giữa màn hình, đáy thẳng hàng */
+  #achv { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-end; gap: 28px 22px; }
+  .ach { width: 200px; }
   .entry-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
   #player-list, .row-form { display: grid; }
   #player-list { grid-template-columns: 1fr 1fr; column-gap: 24px; }
