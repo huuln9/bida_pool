@@ -233,33 +233,19 @@ async function loadPodium() {
 }
 
 // ---------- thành tích ----------
-// Huy hiệu cánh cho danh hiệu Top N (màu lấy theo biến --c1/--c2/--c3 của thẻ)
-const CREST_WING = "M82 50 C60 46 30 34 4 4 C14 28 22 37 30 42 C18 42 10 39 4 35 C17 50 32 56 46 58 C36 60 27 60 18 58 C34 70 58 71 84 63 Z";
-const CREST_WING_HL = "M76 52 C56 48 34 38 16 20";
-function crestSvg(rank, tier, uid) {
-  const g = `cw${uid}`, p = `cp${uid}`;
-  const plate = `<stop offset="0" style="stop-color:var(--c1)"/><stop offset=".45" style="stop-color:var(--c3)"/><stop offset="1" style="stop-color:var(--c2)"/>`;
-  const top = tier === 1
-    ? `<path class="w" fill="url(#${g})" d="M78 34 L84 14 L92 28 L100 2 L108 28 L116 14 L122 34 Z"/>`
-    : `<path class="w" fill="url(#${g})" d="M88 32 L100 10 L112 32 Z"/>`;
-  const mirror = `transform="translate(200 0) scale(-1 1)"`;
-  return `<svg class="crest" viewBox="0 0 200 84" aria-label="Top ${rank}">
-    <defs>
-      <linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" style="stop-color:var(--c1)"/><stop offset=".55" style="stop-color:var(--c3)"/><stop offset="1" style="stop-color:var(--c2)"/>
-      </linearGradient>
-      <linearGradient id="${p}" x1="0" y1="0" x2="0" y2="1">${plate}</linearGradient>
-    </defs>
-    <path class="w" fill="url(#${g})" d="${CREST_WING}"/>
-    <path class="w" fill="url(#${g})" d="${CREST_WING}" ${mirror}/>
-    <path class="hl" d="${CREST_WING_HL}"/><path class="hl" d="${CREST_WING_HL}" ${mirror}/>
-    ${top}
-    <path class="pl" fill="url(#${p})" d="M60 34 L100 26 L140 34 L136 60 L100 78 L64 60 Z"/>
-    <path class="hl" d="M66 38 L100 31 L134 38"/>
-    <text x="100" y="54" text-anchor="middle" dominant-baseline="middle">TOP ${rank}</text>
-  </svg>`;
+// Khung thẻ vẽ sẵn theo hạng; toạ độ các ô (px trên ảnh gốc): [x1, y1, x2, y2]
+const FRAMES = {
+  1: { f: "platinum", w: 241, h: 491, name: [42, 150, 208, 182], img: [46, 204, 200, 374], box: [40, 392, 208, 452] },
+  2: { f: "gold", w: 191, h: 460, name: [22, 140, 168, 176], img: [24, 190, 168, 360], box: [18, 380, 174, 446] },
+  3: { f: "silver", w: 186, h: 440, name: [22, 124, 164, 158], img: [22, 172, 164, 344], box: [16, 362, 168, 424] },
+  4: { f: "bronze", w: 188, h: 436, name: [22, 116, 168, 150], img: [22, 164, 168, 340], box: [16, 360, 170, 422] },
+  5: { f: "wood", w: 185, h: 420, name: [22, 102, 168, 138], img: [22, 154, 168, 320], box: [16, 340, 168, 404] },
+};
+function slotStyle(fr, [x1, y1, x2, y2]) {
+  const p = (v, t) => ((v / t) * 100).toFixed(2) + "%";
+  return `left:${p(x1, fr.w)};top:${p(y1, fr.h)};width:${p(x2 - x1, fr.w)};height:${p(y2 - y1, fr.h)}`;
 }
-// Mỗi lần vô địch League hoặc Cup = 1 sao vàng
+// Mỗi lần vô địch League hoặc Cup = 1 sao vàng. Top 1 platinum, 2 gold, 3 silver, 4 bronze, 5+ (hoặc 0 sao) wood
 async function loadAchievements() {
   const box = $("#achv");
   try {
@@ -270,17 +256,17 @@ async function loadAchievements() {
     const ranks = denseRanks(list.map((r) => r.stars));
     box.innerHTML = list
       .map((r, i) => {
-        const tier = r.stars ? Math.min(ranks[i], 4) : 4;
+        const tier = r.stars ? Math.min(ranks[i], 5) : 5;
+        const fr = FRAMES[tier];
         const stars = r.stars ? "★".repeat(r.stars) : "☆";
         const detail =
           (r.league_win ? `<span class="tag tag-l">League ×${r.league_win}</span>` : "") +
           (r.cup_win ? `<span class="tag tag-c">Cup ×${r.cup_win}</span>` : "");
         return `<div class="ach ach-t${tier} ${r.stars ? "" : "ach-0"}">
-          <div class="ach-title">${crestSvg(ranks[i], tier, i)}</div>
-          <div class="ach-card">
-            <div class="ach-rib">${esc(r.name)}</div>
-            <div class="ach-img">${avatarHtml(r.player_id, r.name, avatars[r.player_id], "ach-av")}</div>
-            <div class="ach-box">
+          <div class="ach-fr" style="--fw:${fr.w};--fh:${fr.h};background-image:url(img/frames/${fr.f}.png)" aria-label="Top ${ranks[i]}">
+            <div class="ach-img" style="${slotStyle(fr, fr.img)}">${avatarHtml(r.player_id, r.name, avatars[r.player_id], "ach-av")}</div>
+            <div class="ach-rib" style="${slotStyle(fr, fr.name)}"><span>${esc(r.name)}</span></div>
+            <div class="ach-box" style="${slotStyle(fr, fr.box)}">
               <div class="ach-s">${stars}</div>
               <div class="ach-d">${detail}</div>
             </div>
