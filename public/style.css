@@ -284,6 +284,7 @@ textarea { resize: none; overflow: hidden; line-height: 1.4; font-family: inheri
 .ach-box .tag { font-size: calc(5.2cqw * var(--k)); padding: 0.1em 0.6em; }
 .ach-box .tag-l { background: #dbe7ff; color: #1d4ed8; }
 .ach-box .tag-c { background: #efe1ff; color: #7e22ce; }
+.ach-box .tag-d { background: #fff3c4; color: #b45309; }
 
 /* ---------- Kết quả từng giải ---------- */
 .res-wrap { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 6px; }

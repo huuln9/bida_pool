@@ -239,13 +239,13 @@ function slotStyle(fr, [x1, y1, x2, y2]) {
   const p = (v, t) => ((v / t) * 100).toFixed(2) + "%";
   return `left:${p(x1, fr.w)};top:${p(y1, fr.h)};width:${p(x2 - x1, fr.w)};height:${p(y2 - y1, fr.h)}`;
 }
-// Mỗi lần vô địch League hoặc Cup = 1 sao vàng. Top 1 platinum, 2 gold, 3 silver, 4 bronze, 5+ (hoặc 0 sao) wood
+// Mỗi lần vô địch League hoặc Cup = 1 sao vàng; vô địch cả League + Cup trong cùng 1 giải thưởng thêm 1 sao. Top 1 platinum, 2 gold, 3 silver, 4 bronze, 5+ (hoặc 0 sao) wood
 async function loadAchievements() {
   const box = $("#achv");
   try {
     const { rows, avatars = {} } = await api("/api/leaderboard");
     const list = rows
-      .map((r) => ({ ...r, stars: r.league_win + r.cup_win }))
+      .map((r) => ({ ...r, stars: r.league_win + r.cup_win + (r.double_win || 0) }))
       .sort((a, b) => b.stars - a.stars || b.league_win - a.league_win || a.rank - b.rank);
     const ranks = denseRanks(list.map((r) => r.stars));
     box.innerHTML = list
@@ -255,7 +255,8 @@ async function loadAchievements() {
         const stars = r.stars ? "★".repeat(r.stars) : "☆";
         const detail =
           (r.league_win ? `<span class="tag tag-l">League ×${r.league_win}</span>` : "") +
-          (r.cup_win ? `<span class="tag tag-c">Cup ×${r.cup_win}</span>` : "");
+          (r.cup_win ? `<span class="tag tag-c">Cup ×${r.cup_win}</span>` : "") +
+          (r.double_win ? `<span class="tag tag-d">Cú đúp ×${r.double_win}</span>` : "");
         return `<div class="ach ach-t${tier} ${r.stars ? "" : "ach-0"}">
           <div class="ach-fr" style="--fw:${fr.w};--fh:${fr.h};--pb:${fr.pb};background-image:url(img/frames/${fr.f}.png)" aria-label="Top ${ranks[i]}">
             <div class="ach-img" style="${slotStyle(fr, fr.img)}">${avatarHtml(r.player_id, r.name, avatars[r.player_id], "ach-av")}</div>

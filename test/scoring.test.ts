@@ -32,4 +32,8 @@ test("bảng sau buổi 2 khớp bảng đã chốt", () => {
     { name: "Đức", games: 30, win: 10, lose: 20, rate: 33.3, lp: 2, lw: 0, lr: [3, 4], lpts: 1, cp: 2, cw: 0, cr: [3, 4], cpts: 1, pts: 12, rank: 5, dp: 8, dr: -1 },
   ]);
   assert.equal(t.find((r) => r.name === "An")!.played_latest, false);
+  // Vô địch cả League + Cup trong cùng 1 giải
+  assert.deepEqual(t.map((r) => [r.name, r.double_win]), [
+    ["Chang", 1], ["Hữu", 0], ["Loan", 0], ["An", 1], ["Đức", 0],
+  ]);
 });

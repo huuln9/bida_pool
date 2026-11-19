@@ -88,6 +88,8 @@ export interface Row {
   cup_win: number;
   cup_ranks: number[];
   cup_pts: number;
+  /** Số giải vô địch cả League lẫn Cup (mỗi lần được thưởng thêm 1 sao). */
+  double_win: number;
   points: number;
   rank: number;
   /** So với bảng trước giải gần nhất. null = không có dữ liệu để so. */
@@ -120,6 +122,8 @@ export function computeTable(players: Player[], sessions: Session[], rawResults:
     const cup_ranks = cup.map((r) => r.rank ?? 0);
     const league_pts = league_ranks.reduce((s, k) => s + bonusForRank(k), 0);
     const cup_pts = cup_ranks.reduce((s, k) => s + bonusForRank(k), 0);
+    const leagueChamp = new Set(league.filter((r) => r.rank === 1).map((r) => r.session_id));
+    const double_win = cup.filter((r) => r.rank === 1 && leagueChamp.has(r.session_id)).length;
     rows.push({
       player_id: p.id,
       name: p.name,
@@ -136,6 +140,7 @@ export function computeTable(players: Player[], sessions: Session[], rawResults:
       cup_win: cup_ranks.filter((k) => k === 1).length,
       cup_ranks,
       cup_pts,
+      double_win,
       points: win + league_pts + cup_pts,
       rank: 0,
       points_delta: null,
