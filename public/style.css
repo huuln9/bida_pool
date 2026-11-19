@@ -329,19 +329,24 @@ textarea { resize: none; overflow: hidden; line-height: 1.4; font-family: inheri
 
 /* ---------- Biểu đồ ---------- */
 :root {
-  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
-  --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+  --pc-red: #e34948; --pc-white: #ffffff; --pc-green: #1baf7a; --pc-blue: #2a78d6; --pc-orange: #eb6834;
+  --pc-violet: #6250d6; --pc-pink: #e87ba4; --pc-yellow: #eda100; --pc-aqua: #17a2b8; --pc-gray: #8a8a8e;
+  --pc-case: #a3a3a8; /* viền cho đường màu trắng trên nền sáng */
 }
 :root.dark {
-  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
-  --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767;
+  --pc-red: #e66767; --pc-green: #199e70; --pc-blue: #3987e5; --pc-orange: #d95926;
+  --pc-violet: #9085e9; --pc-pink: #d55181; --pc-yellow: #c98500; --pc-case: transparent;
 }
 .ch-legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
 .ch-key {
   display: inline-flex; align-items: center; gap: 6px; border: 0.5px solid var(--line-strong); background: var(--bg);
   color: var(--text); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer;
 }
-.ch-key i, .ch-tip-r i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.ch-tip-r i { width: 10px; height: 10px; border-radius: 50%; flex: none; box-shadow: 0 0 0 1px var(--line-strong); }
+.ch-key { padding-left: 3px; }
+.ch-key-av { display: inline-flex; border-radius: 50%; box-shadow: 0 0 0 2px var(--c); }
+.ch-key-av.pc-white { box-shadow: 0 0 0 2px var(--c), 0 0 0 3px var(--pc-case); }
+.ch-key-av .av { width: 22px; height: 22px; font-size: 11px; }
 .ch-key.on { background: var(--bg2); font-weight: 600; border-color: var(--text); }
 .ch-key.off { opacity: 0.45; }
 .ch-card { background: var(--bg2); border-radius: 12px; padding: 10px 10px 4px; margin-bottom: 12px; }
@@ -352,7 +357,17 @@ textarea { resize: none; overflow: hidden; line-height: 1.4; font-family: inheri
 .ch-ax { fill: var(--hint); font-size: 10px; font-variant-numeric: tabular-nums; }
 .ch-cross { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 3; }
 .ch-s path { fill: none; stroke: var(--c); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.ch-s path.case { stroke: transparent; stroke-width: 4; }
+.ch-s.pc-white path.case { stroke: var(--pc-case); }
 .ch-s circle { fill: var(--c); stroke: var(--bg2); stroke-width: 2; }
+.ch-s.pc-white circle { stroke: var(--pc-case); stroke-width: 1; }
+.ch-s.hl path.case { stroke-width: 5; }
+.ch-av .ring { fill: var(--bg2); stroke: var(--c); stroke-width: 2.5; }
+.ch-av.noimg .ring { fill: var(--c); }
+.ch-av.pc-white .ring { filter: drop-shadow(0 0 0.8px var(--pc-case)) drop-shadow(0 0 0.8px var(--pc-case)); }
+.ch-av-t { font-size: 11px; font-weight: 700; fill: #fff; }
+.ch-av.pc-white .ch-av-t { fill: var(--text); }
+.ch-av.dim { opacity: 0.2; }
 .ch-s.dim { opacity: 0.15; }
 .ch-s.hl path { stroke-width: 3; }
 .ch-hit { fill: transparent; cursor: pointer; }

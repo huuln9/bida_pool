@@ -276,7 +276,10 @@ async function loadAchievements() {
 // ---------- biểu đồ ----------
 // Đường thể hiện hạng League / Cup của từng cơ thủ trong 10 giải gần nhất (có thể thức đó).
 const CHART_N = 10;
-const SERIES_N = 8; // số màu cố định --s1..--s8; cơ thủ thứ 9+ dùng màu xám
+// Màu riêng theo tên cơ thủ (so khớp không dấu); người khác lấy lần lượt màu dự phòng
+const PLAYER_COLORS = { huu: "red", loan: "white", an: "green", chang: "blue", duc: "orange" };
+const SPARE_COLORS = ["violet", "pink", "yellow", "aqua"];
+const normName = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase().trim();
 const chartState = { hl: null, data: null };
 
 const isDark = () =>
@@ -289,7 +292,13 @@ async function loadCharts() {
     document.documentElement.classList.toggle("dark", !!isDark());
     // Màu gắn theo cơ thủ (thứ tự id), không đổi giữa 2 biểu đồ
     const ordered = [...players].sort((a, b) => a.id - b.id);
-    const color = new Map(ordered.map((p, i) => [p.id, i < SERIES_N ? `var(--s${i + 1})` : "var(--hint)"]));
+    let spare = 0;
+    const color = new Map(
+      ordered.map((p) => {
+        const c = PLAYER_COLORS[normName(p.name)] ?? SPARE_COLORS[spare++] ?? "gray";
+        return [p.id, c];
+      }),
+    );
     const name = (id) => players.find((p) => p.id === id)?.name ?? "?";
 
     const pick = (type) => {
@@ -308,7 +317,7 @@ async function loadCharts() {
     const league = pick("LEAGUE");
     const cup = pick("CUP");
     const ids = new Set([...league, ...cup].flatMap((s) => s.rows.map((r) => r.player_id)));
-    const series = ordered.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, color: color.get(p.id) }));
+    const series = ordered.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, av: p.avatar_v, c: color.get(p.id), color: `var(--pc-${color.get(p.id)})` }));
     chartState.data = { league, cup, series, name };
 
     if (!series.length) {
@@ -327,7 +336,7 @@ function renderCharts() {
   $("#chart-legend").innerHTML = series
     .map(
       (p) => `<button type="button" class="ch-key ${chartState.hl == null ? "" : chartState.hl === p.id ? "on" : "off"}" data-hl="${p.id}">
-        <i style="background:${p.color}"></i>${esc(p.name)}</button>`,
+        <span class="ch-key-av pc-${p.c}" style="--c:${p.color}">${avatarHtml(p.id, p.name, p.av, "sm")}</span>${esc(p.name)}</button>`,
     )
     .join("");
   $("#charts").innerHTML =
@@ -336,7 +345,7 @@ function renderCharts() {
 
 function rankChart(title, key, sessions, series) {
   if (!sessions.length) return `<div class="ch-card"><div class="ch-h">${title}</div><p class="hint">Chưa có giải ${title}.</p></div>`;
-  const W = 360, H = 230, L = 26, R = 18, T = 12, B = 26;
+  const W = 360, H = 230, L = 26, R = 30, T = 16, B = 26;
   const maxRank = Math.max(4, ...sessions.flatMap((s) => s.rows.map((r) => r.rank)));
   const n = sessions.length;
   const x = (i) => (n === 1 ? (L + W - R) / 2 : L + (i * (W - L - R)) / (n - 1));
@@ -380,11 +389,39 @@ function rankChart(title, key, sessions, series) {
         .map((pt) => `<circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="4"/>`)
         .join("");
       const cls = hl == null ? "" : hl === p.id ? "hl" : "dim";
-      return `<g class="ch-s ${cls}" style="--c:${p.color}"><path d="${d}"/>${dots}</g>`;
+      return `<g class="ch-s pc-${p.c} ${cls}" style="--c:${p.color}"><path class="case" d="${d}"/><path d="${d}"/>${dots}</g>`;
     })
     .join("");
   // Đưa đường đang chọn lên trên cùng
   const ordered = hl == null ? lines : lines.replace(/<g class="ch-s hl"[\s\S]*?<\/g>/, "") + (lines.match(/<g class="ch-s hl"[\s\S]*?<\/g>/)?.[0] ?? "");
+
+  // Ảnh cơ thủ đặt ở điểm cuối của đường; ai trùng điểm cuối thì xếp ngang cạnh nhau
+  const lastGroups = new Map();
+  series.forEach((p) => {
+    for (let i = n - 1; i >= 0; i--) {
+      const pt = pos.get(`${i}:${p.id}`);
+      if (!pt) continue;
+      const k = `${i}:${pt[2].rank}`;
+      lastGroups.set(k, [...(lastGroups.get(k) || []), { p, i, rank: pt[2].rank }]);
+      break;
+    }
+  });
+  const AV = 11;
+  let avs = "";
+  lastGroups.forEach((list) => {
+    list.forEach(({ p, i, rank }, k) => {
+      let ax = x(i) + (k - (list.length - 1) / 2) * (AV * 2 + 2);
+      ax = Math.min(ax, W - AV - 1);
+      const ay = y(rank);
+      const cid = `cl-${key}-${p.id}`;
+      const url = avatarUrl(p.id, p.name, p.av);
+      const inner = url
+        ? `<clipPath id="${cid}"><circle cx="${ax}" cy="${ay}" r="${AV - 1.5}"/></clipPath><image href="${url}" x="${ax - AV}" y="${ay - AV}" width="${AV * 2}" height="${AV * 2}" clip-path="url(#${cid})" preserveAspectRatio="xMidYMid slice"/>`
+        : `<text x="${ax}" y="${ay + 4}" text-anchor="middle" class="ch-av-t">${esc(p.name.charAt(0))}</text>`;
+      const cls = hl == null ? "" : hl === p.id ? "hl" : "dim";
+      avs += `<g class="ch-av pc-${p.c} ${cls} ${url ? "" : "noimg"}" style="--c:${p.color}"><circle class="ring" cx="${ax}" cy="${ay}" r="${AV}"/>${inner}</g>`;
+    });
+  });
 
   const colW = n === 1 ? W - L - R : (W - L - R) / (n - 1);
   const hits = sessions
@@ -395,7 +432,7 @@ function rankChart(title, key, sessions, series) {
     <div class="ch-h"><span>${title}</span><span class="hint">${n} giải gần nhất</span></div>
     <div class="ch-wrap">
       <svg viewBox="0 0 ${W} ${H}" class="ch" role="img" aria-label="Biểu đồ hạng ${title}">
-        ${grid}${xlab}<line class="ch-cross" x1="0" x2="0" y1="${T - 6}" y2="${H - B + 4}" hidden/>${ordered}${hits}
+        ${grid}${xlab}<line class="ch-cross" x1="0" x2="0" y1="${T - 6}" y2="${H - B + 4}" hidden/>${ordered}${avs}${hits}
       </svg>
       <div class="ch-tip" hidden></div>
     </div>
