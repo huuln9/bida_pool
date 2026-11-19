@@ -96,9 +96,10 @@
         <div></div>
         <input id="new-name" placeholder="Tên cơ thủ" maxlength="40" required />
         <textarea id="new-note" rows="1" placeholder="Ghi chú"></textarea>
+        <input type="color" id="new-color" class="pcolor" value="#8a8a8e" title="Màu đại diện (không chọn = mặc định)" />
         <button class="primary" type="submit">Thêm</button>
       </form>
-      <p class="hint">Bấm vào ảnh để đổi ảnh đại diện (ảnh tự thu nhỏ). Ghi chú: mỗi dòng là 1 ý, Enter để xuống dòng.</p>
+      <p class="hint">Bấm vào ảnh để đổi ảnh đại diện (ảnh tự thu nhỏ). Bấm ô màu để chọn màu đại diện (dùng cho biểu đồ), rồi bấm Lưu. Ghi chú: mỗi dòng là 1 ý, Enter để xuống dòng.</p>
       <p class="err" id="player-err"></p>
 
       <h2>Người đã mở app <span class="hint" id="visitor-count"></span></h2>

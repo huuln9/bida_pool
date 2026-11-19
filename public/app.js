@@ -277,10 +277,14 @@ async function loadAchievements() {
 // ---------- biểu đồ ----------
 // Đường thể hiện hạng League / Cup của từng cơ thủ trong 10 giải gần nhất (có thể thức đó).
 const CHART_N = 10;
-// Màu riêng theo tên cơ thủ (so khớp không dấu); người khác lấy lần lượt màu dự phòng
-const PLAYER_COLORS = { huu: "red", loan: "white", an: "green", chang: "blue", duc: "orange" };
-const SPARE_COLORS = ["violet", "pink", "yellow", "aqua"];
-const normName = (s) => String(s).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/gi, "d").toLowerCase().trim();
+// Màu đại diện do admin chọn trong tab Cơ thủ; chưa chọn thì xám
+const DEFAULT_COLOR = "#8a8a8e";
+// Màu rất sáng cần viền để không chìm vào nền sáng
+const isLight = (hex) => {
+  const n = parseInt(hex.slice(1), 16);
+  return (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 > 0.85;
+};
+const playerColor = (p) => p.color || DEFAULT_COLOR;
 const chartState = { hl: null, data: null };
 
 const isDark = () =>
@@ -293,16 +297,6 @@ async function loadCharts() {
     document.documentElement.classList.toggle("dark", !!isDark());
     // Màu gắn theo cơ thủ (thứ tự id), không đổi giữa 2 biểu đồ
     const ordered = [...players].sort((a, b) => a.id - b.id);
-    let spare = 0;
-    const color = new Map(
-      ordered.map((p) => {
-        // Khớp cả tên hoặc 1 từ bất kỳ trong tên (vd "Hữu Lý", "Hữu 🎱" vẫn ra đỏ)
-        const full = normName(p.name);
-        const key = PLAYER_COLORS[full] ? full : full.split(/[^a-z0-9]+/).find((w) => PLAYER_COLORS[w]);
-        const c = PLAYER_COLORS[key] ?? SPARE_COLORS[spare++] ?? "gray";
-        return [p.id, c];
-      }),
-    );
     const name = (id) => players.find((p) => p.id === id)?.name ?? "?";
 
     const pick = (type) => {
@@ -321,7 +315,7 @@ async function loadCharts() {
     const league = pick("LEAGUE");
     const cup = pick("CUP");
     const ids = new Set([...league, ...cup].flatMap((s) => s.rows.map((r) => r.player_id)));
-    const series = ordered.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, av: p.avatar_v, c: color.get(p.id), color: `var(--pc-${color.get(p.id)})` }));
+    const series = ordered.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, av: p.avatar_v, c: isLight(playerColor(p)) ? "light" : "", color: playerColor(p) }));
     chartState.data = { league, cup, series, name };
 
     if (!series.length) {
@@ -727,6 +721,7 @@ async function renderPlayers() {
       </div>
       <input value="${esc(p.name)}" data-pname="${p.id}" maxlength="40" />
       <textarea rows="1" data-pnote="${p.id}" placeholder="Ghi chú">${esc(p.note ?? "")}</textarea>
+      <input type="color" class="pcolor" data-pcolor="${p.id}" value="${playerColor(p)}" title="Màu đại diện" />
       <button class="mini" data-psave="${p.id}">Lưu</button>
       <button class="mini danger" data-pdel="${p.id}">Xoá</button>
     </div>`,
@@ -810,9 +805,10 @@ $("#player-list").addEventListener("click", async (e) => {
       const id = save.dataset.psave;
       await api(`/api/players/${id}`, {
         method: "PUT",
-        body: { name: $(`[data-pname="${id}"]`).value, note: $(`[data-pnote="${id}"]`).value },
+        body: { name: $(`[data-pname="${id}"]`).value, note: $(`[data-pnote="${id}"]`).value, color: colorValue($(`[data-pcolor="${id}"]`)) },
       });
       toast("Đã lưu");
+      renderPlayers();
     }
     if (del) {
       const id = del.dataset.pdel;
@@ -826,13 +822,20 @@ $("#player-list").addEventListener("click", async (e) => {
   }
 });
 
+// Màu xám mặc định không lưu (gửi rỗng -> NULL)
+const colorValue = (el) => (el.value.toLowerCase() === DEFAULT_COLOR ? "" : el.value);
+
 $("#player-add").addEventListener("submit", async (e) => {
   e.preventDefault();
   $("#player-err").textContent = "";
   try {
-    await api("/api/players", { method: "POST", body: { name: $("#new-name").value, note: $("#new-note").value } });
+    await api("/api/players", {
+      method: "POST",
+      body: { name: $("#new-name").value, note: $("#new-note").value, color: colorValue($("#new-color")) },
+    });
     $("#new-name").value = "";
     $("#new-note").value = "";
+    $("#new-color").value = DEFAULT_COLOR;
     autoGrow($("#new-note"));
     toast("Đã thêm");
     renderPlayers();

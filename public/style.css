@@ -90,13 +90,17 @@ button.mini { padding: 4px 9px; font-size: 12px; background: var(--bg); color: v
 button.mini.danger { color: var(--danger); }
 .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
 
-.row-form, .player { display: grid; grid-template-columns: 44px 1fr 1fr 56px 56px; gap: 6px; align-items: start; }
+.row-form, .player { display: grid; grid-template-columns: 44px 1fr 1fr 36px 56px 56px; gap: 6px; align-items: start; }
 .row-form > *, .player > * { min-height: 36px; }
 textarea { resize: none; overflow: hidden; line-height: 1.4; font-family: inherit; }
 .player { margin-bottom: 6px; }
 .row-form { margin-top: 10px; }
 .row-form button { grid-column: span 2; padding: 0; }
 .player button.mini { padding: 0; font-size: 13px; }
+.pcolor { width: 36px; height: 36px; padding: 2px; border: 0.5px solid var(--line-strong); border-radius: 8px; background: var(--bg); cursor: pointer; }
+.pcolor::-webkit-color-swatch-wrapper { padding: 0; }
+.pcolor::-webkit-color-swatch { border: none; border-radius: 6px; }
+.pcolor::-moz-color-swatch { border: none; border-radius: 6px; }
 
 .toast {
   position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--text); color: var(--bg);
@@ -329,15 +333,8 @@ textarea { resize: none; overflow: hidden; line-height: 1.4; font-family: inheri
 .vis a { color: var(--link); text-decoration: none; }
 
 /* ---------- Biểu đồ ---------- */
-:root {
-  --pc-red: #e34948; --pc-white: #ffffff; --pc-green: #1baf7a; --pc-blue: #2a78d6; --pc-orange: #eb6834;
-  --pc-violet: #6250d6; --pc-pink: #e87ba4; --pc-yellow: #eda100; --pc-aqua: #17a2b8; --pc-gray: #8a8a8e;
-  --pc-case: #a3a3a8; /* viền cho đường màu trắng trên nền sáng */
-}
-:root.dark {
-  --pc-red: #e66767; --pc-green: #199e70; --pc-blue: #3987e5; --pc-orange: #d95926;
-  --pc-violet: #9085e9; --pc-pink: #d55181; --pc-yellow: #c98500; --pc-case: transparent;
-}
+:root { --pc-case: #a3a3a8; /* viền cho đường màu sáng trên nền sáng */ }
+:root.dark { --pc-case: transparent; }
 .ch-legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
 .ch-key {
   display: inline-flex; align-items: center; gap: 6px; border: 0.5px solid var(--line-strong); background: var(--bg);
@@ -346,7 +343,7 @@ textarea { resize: none; overflow: hidden; line-height: 1.4; font-family: inheri
 .ch-tip-r i { width: 10px; height: 10px; border-radius: 50%; flex: none; box-shadow: 0 0 0 1px var(--line-strong); }
 .ch-key { padding-left: 3px; }
 .ch-key-av { display: inline-flex; border-radius: 50%; box-shadow: 0 0 0 2px var(--c); }
-.ch-key-av.pc-white { box-shadow: 0 0 0 2px var(--c), 0 0 0 3px var(--pc-case); }
+.ch-key-av.pc-light { box-shadow: 0 0 0 2px var(--c), 0 0 0 3px var(--pc-case); }
 .ch-key-av .av { width: 22px; height: 22px; font-size: 11px; }
 .ch-key.on { background: var(--bg2); font-weight: 600; border-color: var(--text); }
 .ch-key.off { opacity: 0.45; }
@@ -359,15 +356,15 @@ textarea { resize: none; overflow: hidden; line-height: 1.4; font-family: inheri
 .ch-cross { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 3; }
 .ch-s path { fill: none; stroke: var(--c); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 .ch-s path.case { stroke: transparent; stroke-width: 4; }
-.ch-s.pc-white path.case { stroke: var(--pc-case); }
+.ch-s.pc-light path.case { stroke: var(--pc-case); }
 .ch-s circle { fill: var(--c); stroke: var(--bg2); stroke-width: 2; }
-.ch-s.pc-white circle { stroke: var(--pc-case); stroke-width: 1; }
+.ch-s.pc-light circle { stroke: var(--pc-case); stroke-width: 1; }
 .ch-s.hl path.case { stroke-width: 5; }
 .ch-av .ring { fill: var(--bg2); stroke: var(--c); stroke-width: 2.5; }
 .ch-av.noimg .ring { fill: var(--c); }
-.ch-av.pc-white .ring { filter: drop-shadow(0 0 0.8px var(--pc-case)) drop-shadow(0 0 0.8px var(--pc-case)); }
+.ch-av.pc-light .ring { filter: drop-shadow(0 0 0.8px var(--pc-case)) drop-shadow(0 0 0.8px var(--pc-case)); }
 .ch-av-t { font-size: 11px; font-weight: 700; fill: #fff; }
-.ch-av.pc-white .ch-av-t { fill: var(--text); }
+.ch-av.pc-light .ch-av-t { fill: var(--text); }
 .ch-av.dim { opacity: 0.2; }
 .ch-s.dim { opacity: 0.15; }
 .ch-s.hl path { stroke-width: 3; }

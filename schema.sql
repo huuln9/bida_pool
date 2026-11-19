@@ -3,8 +3,12 @@ CREATE TABLE IF NOT EXISTS players (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   name       TEXT NOT NULL UNIQUE,
   note       TEXT,
+  color      TEXT,                      -- màu đại diện #rrggbb (NULL = mặc định)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- DB đã tạo từ trước: chạy 1 lần để thêm cột màu
+-- ALTER TABLE players ADD COLUMN color TEXT;
 
 CREATE TABLE IF NOT EXISTS sessions (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,

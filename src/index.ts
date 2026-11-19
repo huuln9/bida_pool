@@ -70,6 +70,26 @@ function cleanNote(v: unknown): string | null {
   return lines.length ? lines.join("\n") : null;
 }
 
+/** Màu đại diện dạng #rrggbb; rỗng = dùng màu mặc định. */
+function cleanColor(v: unknown): string | null {
+  const s = String(v ?? "").trim().toLowerCase();
+  if (!s) return null;
+  if (!/^#[0-9a-f]{6}$/.test(s)) throw new HttpError(400, "Màu không hợp lệ.");
+  return s;
+}
+
+/** Lưu màu cơ thủ. Báo lỗi rõ nếu DB cũ chưa có cột color. */
+async function saveColor(db: D1Database, id: number, color: string | null) {
+  try {
+    await db.prepare("UPDATE players SET color = ? WHERE id = ?").bind(color, id).run();
+  } catch (e) {
+    if (String(e).includes("no such column")) {
+      throw new HttpError(500, "DB chưa có cột color. Chạy: ALTER TABLE players ADD COLUMN color TEXT;");
+    }
+    throw e;
+  }
+}
+
 const isDate = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
 const isCount = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 999;
 
@@ -233,7 +253,13 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
 
   // --- cơ thủ ---
   if (path === "/api/players" && method === "GET") {
-    const players = (await db.prepare("SELECT id, name, note FROM players ORDER BY name").all<Player>()).results;
+    // DB cũ chưa có cột color thì vẫn chạy bình thường (color = null)
+    const players = (
+      await db
+        .prepare("SELECT id, name, note, color FROM players ORDER BY name")
+        .all<Player & { color: string | null }>()
+        .catch(() => db.prepare("SELECT id, name, note, NULL AS color FROM players ORDER BY name").all<Player & { color: string | null }>())
+    ).results;
     const av = await avatarVersions(db);
     return json(players.map((p) => ({ ...p, avatar_v: av[p.id] ?? null })));
   }
@@ -244,8 +270,11 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
     if (!name || name.length > 40) throw new HttpError(400, "Tên không hợp lệ.");
     const dup = await db.prepare("SELECT id FROM players WHERE name = ?").bind(name).first();
     if (dup) throw new HttpError(409, "Tên này đã có.");
+    const color = cleanColor(body?.color);
     const r = await db.prepare("INSERT INTO players (name, note) VALUES (?, ?)").bind(name, note).run();
-    return json({ id: r.meta.last_row_id, name, note }, 201);
+    const newId = Number(r.meta.last_row_id);
+    if (color) await saveColor(db, newId, color);
+    return json({ id: newId, name, note, color }, 201);
   }
   if ((m = path.match(/^\/api\/players\/(\d+)$/))) {
     requireAdmin(auth);
@@ -257,7 +286,13 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
       const dup = await db.prepare("SELECT id FROM players WHERE name = ? AND id <> ?").bind(name, id).first();
       if (dup) throw new HttpError(409, "Tên này đã có.");
       await db.prepare("UPDATE players SET name = ?, note = ? WHERE id = ?").bind(name, note, id).run();
-      return json({ id, name, note });
+      // Chỉ cập nhật màu khi client gửi trường color ("" = về màu mặc định)
+      let color: string | null | undefined;
+      if (body && "color" in body) {
+        color = cleanColor(body.color);
+        await saveColor(db, id, color);
+      }
+      return json({ id, name, note, color });
     }
     if (method === "DELETE") {
       const used = await db.prepare("SELECT 1 FROM results WHERE player_id = ? LIMIT 1").bind(id).first();
