@@ -17,6 +17,7 @@
     <button data-tab="board" class="on">Bảng xếp hạng</button>
     <button data-tab="podium">Bục vinh danh</button>
     <button data-tab="achv">Thành tích</button>
+    <button data-tab="chart">Biểu đồ</button>
     <button data-tab="sessions">Các giải</button>
     <button data-tab="entry" class="admin-only">Nhập giải</button>
     <button data-tab="players" class="admin-only">Cơ thủ</button>
@@ -38,6 +39,13 @@
       <h2 class="page-t">⭐ Thành tích</h2>
       <p class="sub">Mỗi lần vô địch League hoặc Cup được 1 sao.</p>
       <div id="achv"></div>
+    </section>
+
+    <section id="tab-chart" hidden>
+      <h2 class="page-t">📈 Diễn biến thứ hạng</h2>
+      <p class="sub">Hạng của từng cơ thủ trong 10 giải gần nhất. Chạm tên để làm nổi bật, chạm vào biểu đồ để xem chi tiết.</p>
+      <div id="chart-legend" class="ch-legend"></div>
+      <div id="charts"></div>
     </section>
 
     <section id="tab-sessions" hidden>

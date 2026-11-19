@@ -326,3 +326,47 @@ textarea { resize: none; overflow: hidden; line-height: 1.4; font-family: inheri
 .vis-n { display: inline-flex; align-items: center; gap: 8px; }
 .vis-n img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
 .vis a { color: var(--link); text-decoration: none; }
+
+/* ---------- Biểu đồ ---------- */
+:root {
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --s5: #e87ba4; --s6: #008300; --s7: #6250d6; --s8: #e34948;
+}
+:root.dark {
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --s5: #d55181; --s6: #0ca30c; --s7: #9085e9; --s8: #e66767;
+}
+.ch-legend { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.ch-key {
+  display: inline-flex; align-items: center; gap: 6px; border: 0.5px solid var(--line-strong); background: var(--bg);
+  color: var(--text); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12px; cursor: pointer;
+}
+.ch-key i, .ch-tip-r i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.ch-key.on { background: var(--bg2); font-weight: 600; border-color: var(--text); }
+.ch-key.off { opacity: 0.45; }
+.ch-card { background: var(--bg2); border-radius: 12px; padding: 10px 10px 4px; margin-bottom: 12px; }
+.ch-h { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; font-size: 14px; margin: 0 4px 4px; }
+.ch-wrap { position: relative; }
+.ch { display: block; width: 100%; height: auto; touch-action: pan-y; }
+.ch-grid { stroke: var(--line); stroke-width: 0.5; }
+.ch-ax { fill: var(--hint); font-size: 10px; font-variant-numeric: tabular-nums; }
+.ch-cross { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 3 3; }
+.ch-s path { fill: none; stroke: var(--c); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.ch-s circle { fill: var(--c); stroke: var(--bg2); stroke-width: 2; }
+.ch-s.dim { opacity: 0.15; }
+.ch-s.hl path { stroke-width: 3; }
+.ch-hit { fill: transparent; cursor: pointer; }
+.ch-tip {
+  position: absolute; top: 4px; min-width: 130px; background: var(--bg); border: 0.5px solid var(--line-strong);
+  border-radius: 8px; padding: 6px 8px; font-size: 12px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12); pointer-events: none;
+}
+.ch-tip-h { font-weight: 600; margin-bottom: 4px; }
+.ch-tip-r { display: flex; align-items: center; gap: 6px; padding: 1px 0; }
+.ch-tip-r.on { font-weight: 700; }
+.ch-tip-r .r { display: inline-block; min-width: 16px; text-align: center; border-radius: 3px; background: var(--badge-bg); color: var(--link); font-size: 11px; }
+.ch-tip-n { flex: 1; }
+.ch-tip-v { color: var(--hint); font-variant-numeric: tabular-nums; }
+@media (min-width: 700px) {
+  #charts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  #charts .ch-card { margin-bottom: 0; }
+}

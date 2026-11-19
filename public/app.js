@@ -77,6 +77,7 @@ function showTab(name) {
   if (name === "board") loadBoard();
   if (name === "podium") loadPodium();
   if (name === "achv") loadAchievements();
+  if (name === "chart") loadCharts();
   if (name === "sessions") loadSessions();
   if (name === "entry" && state.editingId == null) resetEntry();
   if (name === "players") {
@@ -271,6 +272,191 @@ async function loadAchievements() {
     box.innerHTML = `<p class="err">${esc(e.message)}</p>`;
   }
 }
+
+// ---------- biểu đồ ----------
+// Đường thể hiện hạng League / Cup của từng cơ thủ trong 10 giải gần nhất (có thể thức đó).
+const CHART_N = 10;
+const SERIES_N = 8; // số màu cố định --s1..--s8; cơ thủ thứ 9+ dùng màu xám
+const chartState = { hl: null, data: null };
+
+const isDark = () =>
+  inTelegram ? tg.colorScheme === "dark" : window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+
+async function loadCharts() {
+  const box = $("#charts");
+  try {
+    const [sessions, players] = await Promise.all([api("/api/sessions"), loadPlayers()]);
+    document.documentElement.classList.toggle("dark", !!isDark());
+    // Màu gắn theo cơ thủ (thứ tự id), không đổi giữa 2 biểu đồ
+    const ordered = [...players].sort((a, b) => a.id - b.id);
+    const color = new Map(ordered.map((p, i) => [p.id, i < SERIES_N ? `var(--s${i + 1})` : "var(--hint)"]));
+    const name = (id) => players.find((p) => p.id === id)?.name ?? "?";
+
+    const pick = (type) => {
+      // sessions mới nhất trước -> lấy 10 giải gần nhất có thể thức này, đảo lại cũ -> mới
+      const list = sessions.filter((s) => s.results.some((r) => r.type === type)).slice(0, CHART_N).reverse();
+      return list.map((s) => {
+        let rows = s.results.filter((r) => r.type === type);
+        if (type === "LEAGUE") {
+          rows = rows.sort((a, b) => b.win - a.win);
+          const rk = denseRanks(rows.map((r) => r.win));
+          rows = rows.map((r, i) => ({ ...r, rank: rk[i] }));
+        } else rows = rows.sort((a, b) => a.rank - b.rank);
+        return { date: s.date, rows };
+      });
+    };
+    const league = pick("LEAGUE");
+    const cup = pick("CUP");
+    const ids = new Set([...league, ...cup].flatMap((s) => s.rows.map((r) => r.player_id)));
+    const series = ordered.filter((p) => ids.has(p.id)).map((p) => ({ id: p.id, name: p.name, color: color.get(p.id) }));
+    chartState.data = { league, cup, series, name };
+
+    if (!series.length) {
+      $("#chart-legend").innerHTML = "";
+      box.innerHTML = `<p class="hint">Chưa có giải nào.</p>`;
+      return;
+    }
+    renderCharts();
+  } catch (e) {
+    box.innerHTML = `<p class="err">${esc(e.message)}</p>`;
+  }
+}
+
+function renderCharts() {
+  const { league, cup, series } = chartState.data;
+  $("#chart-legend").innerHTML = series
+    .map(
+      (p) => `<button type="button" class="ch-key ${chartState.hl == null ? "" : chartState.hl === p.id ? "on" : "off"}" data-hl="${p.id}">
+        <i style="background:${p.color}"></i>${esc(p.name)}</button>`,
+    )
+    .join("");
+  $("#charts").innerHTML =
+    rankChart("League", "lg", league, series) + rankChart("Cup", "cp", cup, series);
+}
+
+function rankChart(title, key, sessions, series) {
+  if (!sessions.length) return `<div class="ch-card"><div class="ch-h">${title}</div><p class="hint">Chưa có giải ${title}.</p></div>`;
+  const W = 360, H = 230, L = 26, R = 18, T = 12, B = 26;
+  const maxRank = Math.max(4, ...sessions.flatMap((s) => s.rows.map((r) => r.rank)));
+  const n = sessions.length;
+  const x = (i) => (n === 1 ? (L + W - R) / 2 : L + (i * (W - L - R)) / (n - 1));
+  const y = (r) => T + ((r - 1) * (H - T - B)) / (maxRank - 1);
+
+  // Người đồng hạng trong cùng 1 giải: tách nhẹ theo chiều dọc để đường không chồng khít
+  const pos = new Map(); // `${i}:${pid}` -> [x, y, row]
+  sessions.forEach((s, i) => {
+    const byRank = new Map();
+    s.rows.forEach((r) => byRank.set(r.rank, [...(byRank.get(r.rank) || []), r]));
+    byRank.forEach((list, rank) => {
+      list.sort((a, b) => a.player_id - b.player_id).forEach((r, k) => {
+        const off = (k - (list.length - 1) / 2) * 5;
+        pos.set(`${i}:${r.player_id}`, [x(i), y(rank) + off, r]);
+      });
+    });
+  });
+
+  const grid = Array.from({ length: maxRank }, (_, k) => k + 1)
+    .map((r) => `<line class="ch-grid" x1="${L}" x2="${W - R}" y1="${y(r)}" y2="${y(r)}"/><text class="ch-ax" x="${L - 8}" y="${y(r) + 3.5}" text-anchor="end">${r}</text>`)
+    .join("");
+  const step = n > 6 ? 2 : 1; // màn hẹp: nhãn ngày cách 1
+  const xlab = sessions
+    .map((s, i) => ((n - 1 - i) % step === 0 ? `<text class="ch-ax" x="${x(i)}" y="${H - 8}" text-anchor="middle">${fmtDate(s.date).slice(0, 5)}</text>` : ""))
+    .join("");
+
+  const hl = chartState.hl;
+  const lines = series
+    .map((p) => {
+      const pts = sessions.map((_, i) => pos.get(`${i}:${p.id}`));
+      if (!pts.some(Boolean)) return "";
+      // Vắng mặt ở giải nào thì ngắt đường ở đó
+      let d = "", pen = false;
+      pts.forEach((pt) => {
+        if (!pt) return (pen = false);
+        d += `${pen ? "L" : "M"}${pt[0].toFixed(1)},${pt[1].toFixed(1)}`;
+        pen = true;
+      });
+      const dots = pts
+        .filter(Boolean)
+        .map((pt) => `<circle cx="${pt[0].toFixed(1)}" cy="${pt[1].toFixed(1)}" r="4"/>`)
+        .join("");
+      const cls = hl == null ? "" : hl === p.id ? "hl" : "dim";
+      return `<g class="ch-s ${cls}" style="--c:${p.color}"><path d="${d}"/>${dots}</g>`;
+    })
+    .join("");
+  // Đưa đường đang chọn lên trên cùng
+  const ordered = hl == null ? lines : lines.replace(/<g class="ch-s hl"[\s\S]*?<\/g>/, "") + (lines.match(/<g class="ch-s hl"[\s\S]*?<\/g>/)?.[0] ?? "");
+
+  const colW = n === 1 ? W - L - R : (W - L - R) / (n - 1);
+  const hits = sessions
+    .map((_, i) => `<rect class="ch-hit" data-i="${i}" x="${x(i) - colW / 2}" y="0" width="${colW}" height="${H}"/>`)
+    .join("");
+
+  return `<div class="ch-card" data-chart="${key}">
+    <div class="ch-h"><span>${title}</span><span class="hint">${n} giải gần nhất</span></div>
+    <div class="ch-wrap">
+      <svg viewBox="0 0 ${W} ${H}" class="ch" role="img" aria-label="Biểu đồ hạng ${title}">
+        ${grid}${xlab}<line class="ch-cross" x1="0" x2="0" y1="${T - 6}" y2="${H - B + 4}" hidden/>${ordered}${hits}
+      </svg>
+      <div class="ch-tip" hidden></div>
+    </div>
+  </div>`;
+}
+
+$("#chart-legend").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-hl]");
+  if (!b) return;
+  const id = Number(b.dataset.hl);
+  chartState.hl = chartState.hl === id ? null : id;
+  renderCharts();
+});
+
+// Chạm / rê chuột vào cột giải: hiện đường dóng + bảng hạng của giải đó
+function showChartTip(e) {
+  const hit = e.target.closest?.(".ch-hit");
+  const card = e.target.closest?.(".ch-card");
+  if (!hit || !card) return;
+  const { league, cup, series, name } = chartState.data;
+  const sessions = card.dataset.chart === "lg" ? league : cup;
+  const i = Number(hit.dataset.i);
+  const s = sessions[i];
+  const svg = card.querySelector("svg");
+  const cross = svg.querySelector(".ch-cross");
+  const cx = Number(hit.getAttribute("x")) + Number(hit.getAttribute("width")) / 2;
+  cross.setAttribute("x1", cx);
+  cross.setAttribute("x2", cx);
+  cross.hidden = false;
+  const col = new Map(series.map((p) => [p.id, p.color]));
+  const tip = card.querySelector(".ch-tip");
+  tip.innerHTML =
+    `<div class="ch-tip-h">Giải ${fmtDate(s.date)}</div>` +
+    s.rows
+      .map(
+        (r) => `<div class="ch-tip-r ${chartState.hl === r.player_id ? "on" : ""}"><span class="r r${Math.min(r.rank, 4)}">${r.rank}</span>
+        <i style="background:${col.get(r.player_id)}"></i><span class="ch-tip-n">${esc(name(r.player_id))}</span><span class="ch-tip-v">${r.win}-${r.lose}</span></div>`,
+      )
+      .join("");
+  tip.hidden = false;
+  // Đặt tooltip bên phải đường dóng, sát mép thì lật sang trái
+  const wrap = card.querySelector(".ch-wrap");
+  const px = (cx / svg.viewBox.baseVal.width) * wrap.clientWidth;
+  const left = px + 12 + tip.offsetWidth > wrap.clientWidth ? px - 12 - tip.offsetWidth : px + 12;
+  tip.style.left = Math.max(0, left) + "px";
+}
+function hideChartTip(card) {
+  if (!card) return;
+  card.querySelector(".ch-tip").hidden = true;
+  card.querySelector(".ch-cross").hidden = true;
+}
+$("#charts").addEventListener("pointermove", showChartTip);
+$("#charts").addEventListener("click", showChartTip);
+$("#charts").addEventListener("pointerout", (e) => {
+  if (e.pointerType !== "mouse") return;
+  const wrap = e.target.closest?.(".ch-wrap");
+  if (wrap && !wrap.contains(e.relatedTarget)) hideChartTip(wrap.closest(".ch-card"));
+});
+document.addEventListener("click", (e) => {
+  if (!e.target.closest(".ch-wrap")) document.querySelectorAll(".ch-card").forEach(hideChartTip);
+});
 
 // ---------- các giải ----------
 // Bảng kết quả 1 thể thức trong 1 giải
