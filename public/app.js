@@ -295,7 +295,10 @@ async function loadCharts() {
     let spare = 0;
     const color = new Map(
       ordered.map((p) => {
-        const c = PLAYER_COLORS[normName(p.name)] ?? SPARE_COLORS[spare++] ?? "gray";
+        // Khớp cả tên hoặc 1 từ bất kỳ trong tên (vd "Hữu Lý", "Hữu 🎱" vẫn ra đỏ)
+        const full = normName(p.name);
+        const key = PLAYER_COLORS[full] ? full : full.split(/[^a-z0-9]+/).find((w) => PLAYER_COLORS[w]);
+        const c = PLAYER_COLORS[key] ?? SPARE_COLORS[spare++] ?? "gray";
         return [p.id, c];
       }),
     );
