@@ -411,10 +411,11 @@ function rankChart(title, key, sessions, series) {
       let ax = x(i) + (k - (list.length - 1) / 2) * (AV * 2 + 2);
       ax = Math.min(ax, W - AV - 1);
       const ay = y(rank);
-      const cid = `cl-${key}-${p.id}`;
       const url = avatarUrl(p.id, p.name, p.av);
+      // Ảnh không cắt theo vòng, to hơn vòng một chút và nằm đè lên vòng màu
+      const S = AV + 4;
       const inner = url
-        ? `<clipPath id="${cid}"><circle cx="${ax}" cy="${ay}" r="${AV - 1.5}"/></clipPath><image href="${url}" x="${ax - AV}" y="${ay - AV}" width="${AV * 2}" height="${AV * 2}" clip-path="url(#${cid})" preserveAspectRatio="xMidYMid slice"/>`
+        ? `<image href="${url}" x="${ax - S}" y="${ay - S}" width="${S * 2}" height="${S * 2}" preserveAspectRatio="xMidYMid meet"/>`
         : `<text x="${ax}" y="${ay + 4}" text-anchor="middle" class="ch-av-t">${esc(p.name.charAt(0))}</text>`;
       const cls = hl == null ? "" : hl === p.id ? "hl" : "dim";
       avs += `<g class="ch-av pc-${p.c} ${cls} ${url ? "" : "noimg"}" style="--c:${p.color}"><circle class="ring" cx="${ax}" cy="${ay}" r="${AV}"/>${inner}</g>`;
