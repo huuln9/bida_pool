@@ -29,6 +29,13 @@ export function bonusForRank(rank: number | null): number {
   return RANK_BONUS[rank - 1] ?? 0;
 }
 
+/** Điểm thưởng chuỗi mỗi giải theo chuỗi tại giải đó: 1 → 0, 2 → +2, 3 → +3, 4 → +4, từ 5 → +5. */
+export const STREAK_MAX = 5;
+export function bonusForStreak(streak: number): number {
+  return streak < 2 ? 0 : Math.min(streak, STREAK_MAX);
+}
+export const STREAK_RECENT = 10;
+
 /** Thắng/thua mặc định của Cup theo hạng (Top 1 thắng 2, Top 2-3 thắng 1 thua 1, Top 4 thua 2). */
 export function cupDefaultsForRank(rank: number): { win: number; lose: number } {
   if (rank === 1) return { win: 2, lose: 0 };
@@ -90,6 +97,12 @@ export interface Row {
   cup_pts: number;
   /** Số giải vô địch cả League lẫn Cup (mỗi lần được thưởng thêm 1 sao). */
   double_win: number;
+  /** Chuỗi tham gia liên tiếp tính tới giải gần nhất, kỷ lục, 10 giải gần nhất (cũ → mới). */
+  streak: number;
+  best_streak: number;
+  recent: boolean[];
+  /** Tổng điểm thưởng chuỗi (cộng dồn mỗi giải). */
+  streak_pts: number;
   points: number;
   rank: number;
   /** So với bảng trước giải gần nhất. null = không có dữ liệu để so. */
@@ -110,10 +123,23 @@ export function computeTable(players: Player[], sessions: Session[], rawResults:
     // mới nhất trước để mảng hạng hiển thị "lần gần nhất → lần trước"
     .sort((a, b) => order.get(b.session_id)! - order.get(a.session_id)!);
 
+  const attended = new Map<number, Set<number>>(); // player_id -> session_id
+  for (const r of results) {
+    if (!attended.has(r.player_id)) attended.set(r.player_id, new Set());
+    attended.get(r.player_id)!.add(r.session_id);
+  }
+
   const rows: Row[] = [];
   for (const p of players) {
     const mine = results.filter((r) => r.player_id === p.id);
     if (mine.length === 0) continue;
+    const seq = ordered.map((s) => attended.get(p.id)!.has(s.id));
+    let streak = 0, best_streak = 0, streak_pts = 0;
+    for (const on of seq) {
+      streak = on ? streak + 1 : 0;
+      best_streak = Math.max(best_streak, streak);
+      if (on) streak_pts += bonusForStreak(streak);
+    }
     const league = mine.filter((r) => r.type === "LEAGUE");
     const cup = mine.filter((r) => r.type === "CUP");
     const win = mine.reduce((s, r) => s + r.win, 0);
@@ -141,7 +167,11 @@ export function computeTable(players: Player[], sessions: Session[], rawResults:
       cup_ranks,
       cup_pts,
       double_win,
-      points: win + league_pts + cup_pts,
+      streak,
+      best_streak,
+      recent: seq.slice(-STREAK_RECENT),
+      streak_pts,
+      points: win + league_pts + cup_pts + streak_pts,
       rank: 0,
       points_delta: null,
       rank_delta: null,

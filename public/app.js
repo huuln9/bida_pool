@@ -130,9 +130,7 @@ async function loadBoard() {
 
     const rankMark = (r) =>
       r.rank_delta > 0 ? `<span class="ru">▲${r.rank_delta}</span>` : r.rank_delta < 0 ? `<span class="rd">▼${-r.rank_delta}</span>` : "";
-    // Chuỗi tham gia liên tiếp (từ 2 giải): chữ cam, không khung
-    const streakMark = (r) =>
-      r.streak >= 2 ? `<span class="stk${r.streak >= 5 ? " hot" : ""}" title="Tham gia ${r.streak} giải liên tiếp">🔥${r.streak}</span>` : "";
+    const streakMark = (r) => flame(r.streak);
     const ptsMark = (r) => (r.points_delta > 0 ? `<td class="up">▲${r.points_delta}</td>` : `<td class="z">${r.points_delta == null ? "" : "–"}</td>`);
 
     lb.innerHTML = `
@@ -141,12 +139,12 @@ async function loadBoard() {
           <th colspan="6"></th>
           <th colspan="4" class="g lg">League</th>
           <th colspan="4" class="g cp">Cup</th>
-          <th colspan="2" class="g pt">Total</th>
+          <th colspan="3" class="g pt">Total</th>
         </tr>
         <tr>
         <th>Total<br>Rank</th><th class="n">Player</th><th>Game<br>Play</th><th>Win</th><th>Lose</th><th>Win<br>%</th>
         <th class="g lg">Play</th><th class="lg">Win</th><th class="lg">Rank</th><th class="lg">Pts</th>
-        <th class="g cp">Play</th><th class="cp">Win</th><th class="cp">Rank</th><th class="cp">Pts</th><th class="g pt">Pts</th><th class="pt"></th>
+        <th class="g cp">Play</th><th class="cp">Win</th><th class="cp">Rank</th><th class="cp">Pts</th><th class="g pt">Chuỗi</th><th class="pt">Pts</th><th class="pt"></th>
       </tr></thead>
       <tbody>${rows
         .map(
@@ -156,7 +154,7 @@ async function loadBoard() {
         <td>${r.games}</td><td class="w">${r.win}</td><td class="l">${r.lose}</td><td><span class="wr ${rateCls(r.win_rate)}">${r.win_rate.toFixed(1)}</span></td>
         <td class="g lg">${r.league_played}</td><td class="lg">${r.league_win || "·"}</td><td class="rk lg">${badges(r.league_ranks)}</td><td class="lg b">${r.league_pts}</td>
         <td class="g cp">${r.cup_played}</td><td class="cp">${r.cup_win || "·"}</td><td class="rk cp">${badges(r.cup_ranks)}</td><td class="cp b">${r.cup_pts}</td>
-        <td class="g p pt"><span class="pts">${r.points}</span></td>${ptsMark(r).replace("<td class=\"", "<td class=\"pt ")}
+        <td class="g pt">${r.streak_pts ? "+" + r.streak_pts : "·"}</td><td class="p pt"><span class="pts">${r.points}</span></td>${ptsMark(r).replace("<td class=\"", "<td class=\"pt ")}
       </tr>`,
         )
         .join("")}</tbody>`;
@@ -176,7 +174,8 @@ async function loadBoard() {
       sec("Cách tính điểm", [
         "Thắng 1 trận: +1",
         `Hạng League / Cup:<ul class="note-ul"><li>Top 1 +3</li><li>Top 2 +2</li><li>Top 3 +1</li><li>Top 4 +0</li></ul>`,
-        "<b>Pts = Win + League Pts + Cup Pts</b>",
+        `Thưởng chuỗi (mỗi giải, theo số giải tham gia liên tiếp):<ul class="note-ul"><li>Chuỗi 1: +0</li><li>Chuỗi 2: +2 · 3: +3 · 4: +4</li><li>Chuỗi 5 trở lên: +5</li></ul>`,
+        "<b>Pts = Win + League Pts + Cup Pts + Chuỗi</b>",
       ]),
       notes.length ? sec("Ghi chú", notes) : "",
     ].join("");
@@ -298,6 +297,13 @@ async function loadAchievements() {
   }
 }
 
+// Ngọn lửa chuỗi 5 mức: chuỗi 1, 2, 3, 4, từ 5 trở lên
+function flame(streak, big = false) {
+  if (!streak) return "";
+  const lv = Math.min(streak, 5);
+  return `<span class="fl fl${lv}${big ? " fl-big" : ""}" title="Tham gia ${streak} giải liên tiếp"><i>🔥</i>${streak}</span>`;
+}
+
 function renderStreaks(rows) {
   const list = rows
     .filter((r) => r.best_streak > 0)
@@ -308,10 +314,10 @@ function renderStreaks(rows) {
         (r) => `<div class="stk-card${r.streak ? "" : " off"}">
         <div class="stk-l">
           <div class="stk-n">${esc(r.name)}</div>
-          <div class="stk-sub">Kỷ lục ${r.best_streak}${r.streak ? "" : " · đứt chuỗi"}</div>
+          <div class="stk-sub">Kỷ lục ${r.best_streak} · thưởng +${r.streak_pts}${r.streak ? "" : " · đứt chuỗi"}</div>
           <div class="stk-dots">${r.recent.map((on) => `<span class="${on ? "on" : ""}"></span>`).join("")}</div>
         </div>
-        <div class="stk-r"><div class="stk-big">${r.streak ? "🔥" : ""}${r.streak}</div><div class="stk-sub">liên tiếp</div></div>
+        <div class="stk-r"><div class="stk-big">${r.streak ? flame(r.streak, true) : "0"}</div><div class="stk-sub">liên tiếp</div></div>
       </div>`,
       )
       .join("") || `<p class="hint">Chưa có dữ liệu.</p>`;

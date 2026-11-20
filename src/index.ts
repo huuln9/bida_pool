@@ -122,35 +122,10 @@ async function avatarVersions(db: D1Database): Promise<Record<number, string>> {
   }
 }
 
-const STREAK_RECENT = 10;
-
-/** Chuỗi tham gia liên tiếp: hiện tại (tính tới giải gần nhất), kỷ lục, và 10 giải gần nhất (cũ → mới). */
-function streaks(sessions: Session[], results: Result[]) {
-  const attended = new Map<number, Set<number>>(); // session_id -> player_ids
-  for (const r of results) {
-    if (!attended.has(r.session_id)) attended.set(r.session_id, new Set());
-    attended.get(r.session_id)!.add(r.player_id);
-  }
-  const ids = new Set(results.map((r) => r.player_id));
-  const out = new Map<number, { streak: number; best_streak: number; recent: boolean[] }>();
-  for (const pid of ids) {
-    let cur = 0, best = 0;
-    const seq = sessions.map((s) => !!attended.get(s.id)?.has(pid));
-    for (const on of seq) {
-      cur = on ? cur + 1 : 0;
-      best = Math.max(best, cur);
-    }
-    out.set(pid, { streak: cur, best_streak: best, recent: seq.slice(-STREAK_RECENT) });
-  }
-  return out;
-}
-
 async function leaderboard(env: Env, includeDrafts = false) {
   const { players, sessions, results } = await loadAll(env.DB, includeDrafts);
-  const st = streaks(sessions, results);
-  const none = { streak: 0, best_streak: 0, recent: [] as boolean[] };
   return {
-    rows: computeLeaderboard(players, sessions, results).map((r) => ({ ...r, ...(st.get(r.player_id) ?? none) })),
+    rows: computeLeaderboard(players, sessions, results),
     latest: sessions[sessions.length - 1] ?? null,
     sessionCount: sessions.length,
     draftCount: sessions.filter((s) => !s.published).length,
