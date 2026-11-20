@@ -664,7 +664,33 @@ function updateLeaguePreview() {
   $("#league-preview").textContent = entries.length ? "Hạng League tự tính theo số trận thắng, bằng nhau thì đồng hạng." : "";
 }
 
-$("#league-rows").addEventListener("input", updateLeaguePreview);
+// Tự tính số trận thua League: A = tổng thắng / 2, thua = A - thắng (vẫn sửa tay được)
+function autoLeagueLose() {
+  const wins = [...document.querySelectorAll("[data-l-win]")].filter((el) => el.value !== "");
+  const total = wins.reduce((s, el) => s + Number(el.value), 0);
+  const msg = $("#league-auto");
+  msg.textContent = "";
+  document.querySelectorAll("[data-l-win]").forEach((el) => {
+    if (el.value === "") document.querySelector(`[data-l-lose="${el.dataset.lWin}"]`).value = "";
+  });
+  if (!wins.length) return;
+  if (total % 2) {
+    msg.textContent = `Tổng số trận thắng = ${total} (lẻ) nên chưa tính được số thua, kiểm tra lại.`;
+    return;
+  }
+  const a = total / 2;
+  const neg = wins.filter((el) => Number(el.value) > a);
+  if (neg.length) {
+    msg.textContent = `Có người thắng nhiều hơn ${a} (= tổng thắng / 2), kiểm tra lại.`;
+    return;
+  }
+  wins.forEach((el) => (document.querySelector(`[data-l-lose="${el.dataset.lWin}"]`).value = a - Number(el.value)));
+}
+
+$("#league-rows").addEventListener("input", (e) => {
+  if (e.target.dataset.lWin) autoLeagueLose();
+  updateLeaguePreview();
+});
 $("#cup-rows").addEventListener("change", (e) => {
   const id = e.target.dataset.cRank;
   if (!id) return;
