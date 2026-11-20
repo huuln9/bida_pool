@@ -396,3 +396,19 @@ textarea { resize: none; overflow: hidden; line-height: 1.4; font-family: inheri
 .viewsw { display: inline-flex; border: 0.5px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
 .viewsw button { border: 0; background: transparent; color: var(--hint); font-size: 11px; padding: 3px 8px; cursor: pointer; }
 .viewsw button.on { background: var(--btn); color: var(--btn-text); font-weight: 600; }
+
+/* ---------- Giữ chuỗi ---------- */
+.stk { margin-left: 4px; font-size: 0.9em; font-weight: 600; color: #d97706; white-space: nowrap; }
+.stk.hot { color: #dc2626; font-weight: 800; }
+.sec-t { font-size: 17px; text-align: center; margin: 22px 0 2px; }
+#streaks { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin-top: 8px; }
+.stk-card { display: flex; justify-content: space-between; align-items: center; gap: 8px; background: var(--bg2); border-radius: 10px; padding: 8px 12px; }
+.stk-card.off { opacity: .65; }
+.stk-n { font-weight: 600; }
+.stk-sub { font-size: 11px; color: var(--hint); }
+.stk-dots { display: flex; gap: 3px; margin-top: 5px; }
+.stk-dots span { width: 9px; height: 9px; border-radius: 50%; background: var(--line-strong); }
+.stk-dots span.on { background: #f59e0b; }
+.stk-r { text-align: right; }
+.stk-big { font-size: 20px; font-weight: 800; color: #dc2626; line-height: 1.1; }
+.stk-card.off .stk-big { color: var(--hint); }

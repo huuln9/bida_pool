@@ -130,6 +130,9 @@ async function loadBoard() {
 
     const rankMark = (r) =>
       r.rank_delta > 0 ? `<span class="ru">▲${r.rank_delta}</span>` : r.rank_delta < 0 ? `<span class="rd">▼${-r.rank_delta}</span>` : "";
+    // Chuỗi tham gia liên tiếp (từ 2 giải): chữ cam, không khung
+    const streakMark = (r) =>
+      r.streak >= 2 ? `<span class="stk${r.streak >= 5 ? " hot" : ""}" title="Tham gia ${r.streak} giải liên tiếp">🔥${r.streak}</span>` : "";
     const ptsMark = (r) => (r.points_delta > 0 ? `<td class="up">▲${r.points_delta}</td>` : `<td class="z">${r.points_delta == null ? "" : "–"}</td>`);
 
     lb.innerHTML = `
@@ -149,7 +152,7 @@ async function loadBoard() {
         .map(
           (r) => `<tr class="${r.rank <= 3 ? "medal m" + r.rank : ""}">
         <td><span class="tr tr${Math.min(r.rank, 4)}">${r.rank}</span></td>
-        <td class="n">${esc(r.name)}${marks.has(r.player_id) ? ` <span class="mk">${marks.get(r.player_id)}</span>` : ""}${rankMark(r)}</td>
+        <td class="n">${esc(r.name)}${marks.has(r.player_id) ? ` <span class="mk">${marks.get(r.player_id)}</span>` : ""}${rankMark(r)}${streakMark(r)}</td>
         <td>${r.games}</td><td class="w">${r.win}</td><td class="l">${r.lose}</td><td><span class="wr ${rateCls(r.win_rate)}">${r.win_rate.toFixed(1)}</span></td>
         <td class="g lg">${r.league_played}</td><td class="lg">${r.league_win || "·"}</td><td class="rk lg">${badges(r.league_ranks)}</td><td class="lg b">${r.league_pts}</td>
         <td class="g cp">${r.cup_played}</td><td class="cp">${r.cup_win || "·"}</td><td class="rk cp">${badges(r.cup_ranks)}</td><td class="cp b">${r.cup_pts}</td>
@@ -289,9 +292,29 @@ async function loadAchievements() {
         </div>`;
       })
       .join("");
+    renderStreaks(rows);
   } catch (e) {
     box.innerHTML = `<p class="err">${esc(e.message)}</p>`;
   }
+}
+
+function renderStreaks(rows) {
+  const list = rows
+    .filter((r) => r.best_streak > 0)
+    .sort((a, b) => b.streak - a.streak || b.best_streak - a.best_streak || a.rank - b.rank);
+  $("#streaks").innerHTML =
+    list
+      .map(
+        (r) => `<div class="stk-card${r.streak ? "" : " off"}">
+        <div class="stk-l">
+          <div class="stk-n">${esc(r.name)}</div>
+          <div class="stk-sub">Kỷ lục ${r.best_streak}${r.streak ? "" : " · đứt chuỗi"}</div>
+          <div class="stk-dots">${r.recent.map((on) => `<span class="${on ? "on" : ""}"></span>`).join("")}</div>
+        </div>
+        <div class="stk-r"><div class="stk-big">${r.streak ? "🔥" : ""}${r.streak}</div><div class="stk-sub">liên tiếp</div></div>
+      </div>`,
+      )
+      .join("") || `<p class="hint">Chưa có dữ liệu.</p>`;
 }
 
 // ---------- biểu đồ ----------
