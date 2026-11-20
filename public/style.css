@@ -243,7 +243,7 @@ textarea { resize: none; overflow: hidden; line-height: 1.4; font-family: inheri
 /* ---------- Đương kim vô địch ---------- */
 .page-t { text-align: center; font-size: 20px; margin: 6px 0 4px; font-weight: 800; }
 /* Chỉ tô gradient phần chữ — emoji để ngoài, nếu không sẽ bị trong suốt */
-.page-t .grad { background: linear-gradient(90deg, #f59e0b, #ef4444, #a855f7);
+.page-t .grad { display: inline-block; background: linear-gradient(90deg, #f59e0b, #ef4444, #a855f7);
   -webkit-background-clip: text; background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
 .champ { border-radius: 14px; padding: 10px 10px 0; margin: 14px 0 6px; overflow: hidden; }
 .champ-l { background: color-mix(in srgb, var(--lg) 10%, transparent); }
