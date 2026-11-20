@@ -385,3 +385,15 @@ textarea { resize: none; overflow: hidden; line-height: 1.4; font-family: inheri
   #charts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   #charts .ch-card { margin-bottom: 0; }
 }
+
+/* ---------- Giải chưa công khai ---------- */
+.pub-chk { display: flex; align-items: center; gap: 6px; font-size: 13px; margin: 8px 0 4px; }
+.card.is-draft { outline: 1px dashed var(--hint); opacity: .85; }
+.draft { font-size: 11px; font-weight: 600; color: #b45309; background: color-mix(in srgb, #f59e0b 18%, transparent); padding: 1px 6px; border-radius: 6px; margin-left: 4px; }
+
+/* ---------- Chuyển chế độ xem Admin / User ---------- */
+.who-wrap { display: inline-flex; align-items: center; gap: 8px; }
+.viewsw { display: inline-flex; border: 0.5px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+.viewsw button { border: 0; background: transparent; color: var(--hint); font-size: 11px; padding: 3px 8px; cursor: pointer; }
+.viewsw button.on { background: var(--btn); color: var(--btn-text); font-weight: 600; }
+.view-note { font-size: 12px; color: #b45309; background: color-mix(in srgb, #f59e0b 14%, transparent); border-radius: 8px; padding: 6px 10px; margin: 0 0 10px; }

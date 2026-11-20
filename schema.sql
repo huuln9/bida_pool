@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   date       TEXT NOT NULL,             -- YYYY-MM-DD
   created_by TEXT,
+  published  INTEGER NOT NULL DEFAULT 1, -- 0 = chưa công khai (chỉ admin thấy, không tính điểm)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -29,6 +30,9 @@ CREATE TABLE IF NOT EXISTS results (
   rank       INTEGER,
   UNIQUE (session_id, player_id, type)
 );
+
+-- DB đã tạo từ trước: chạy 1 lần để thêm cột công khai (giải cũ mặc định đã công khai)
+-- ALTER TABLE sessions ADD COLUMN published INTEGER NOT NULL DEFAULT 1;
 
 CREATE INDEX IF NOT EXISTS idx_results_session ON results(session_id);
 

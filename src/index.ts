@@ -94,13 +94,22 @@ const isDate = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{
 const isCount = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 0 && (n as number) <= 999;
 
 // ---------- truy vấn ----------
-async function loadAll(db: D1Database) {
+type SessionRow = Session & { published: number };
+
+/** includeDrafts = true: lấy cả giải chưa công khai (chỉ dành cho admin). */
+async function loadAll(db: D1Database, includeDrafts = false) {
+  const where = includeDrafts ? "" : " WHERE published = 1";
   const [p, s, r] = await Promise.all([
     db.prepare("SELECT id, name, note FROM players ORDER BY id").all<Player>(),
-    db.prepare("SELECT id, date FROM sessions ORDER BY date, id").all<Session>(),
+    db
+      .prepare(`SELECT id, date, published FROM sessions${where} ORDER BY date, id`)
+      .all<SessionRow>()
+      // DB cũ chưa có cột published: coi như tất cả đã công khai
+      .catch(() => db.prepare("SELECT id, date, 1 AS published FROM sessions ORDER BY date, id").all<SessionRow>()),
     db.prepare("SELECT session_id, player_id, type, win, lose, rank FROM results").all<Result>(),
   ]);
-  return { players: p.results, sessions: s.results, results: r.results };
+  const ids = new Set(s.results.map((x) => x.id));
+  return { players: p.results, sessions: s.results, results: r.results.filter((x) => ids.has(x.session_id)) };
 }
 
 /** Phiên bản ảnh đại diện của từng cơ thủ: { player_id: updated_at }. Trống nếu chưa tạo bảng avatars. */
@@ -113,12 +122,13 @@ async function avatarVersions(db: D1Database): Promise<Record<number, string>> {
   }
 }
 
-async function leaderboard(env: Env) {
-  const { players, sessions, results } = await loadAll(env.DB);
+async function leaderboard(env: Env, includeDrafts = false) {
+  const { players, sessions, results } = await loadAll(env.DB, includeDrafts);
   return {
     rows: computeLeaderboard(players, sessions, results),
     latest: sessions[sessions.length - 1] ?? null,
     sessionCount: sessions.length,
+    draftCount: sessions.filter((s) => !s.published).length,
     avatars: await avatarVersions(env.DB),
   };
 }
@@ -206,7 +216,8 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
     }
   }
   if (path === "/api/leaderboard" && method === "GET") {
-    return json(await leaderboard(env));
+    const all = auth.isAdmin && new URL(req.url).searchParams.get("all") === "1";
+    return json(await leaderboard(env, all));
   }
 
   // --- ảnh đại diện ---
@@ -305,7 +316,8 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
 
   // --- giải ---
   if (path === "/api/sessions" && method === "GET") {
-    const { sessions, results } = await loadAll(db);
+    const all = auth.isAdmin && new URL(req.url).searchParams.get("all") === "1";
+    const { sessions, results } = await loadAll(db, all);
     return json(
       [...sessions].reverse().map((s) => ({ ...s, results: results.filter((r) => r.session_id === s.id) })),
     );
@@ -315,7 +327,11 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
     const ids = new Set((await db.prepare("SELECT id FROM players").all<{ id: number }>()).results.map((p) => p.id));
     const s = parseSession(body, ids);
     const who = auth.user?.username ?? String(auth.user?.id ?? "");
-    const r = await db.prepare("INSERT INTO sessions (date, created_by) VALUES (?, ?)").bind(s.date, who).run();
+    const pub = body?.published ? 1 : 0;
+    const r = await db
+      .prepare("INSERT INTO sessions (date, created_by, published) VALUES (?, ?, ?)")
+      .bind(s.date, who, pub)
+      .run();
     const sid = r.meta.last_row_id;
     try {
       await db.batch(resultStmts(db, sid, s));
@@ -324,6 +340,15 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
       throw e;
     }
     return json({ id: sid }, 201);
+  }
+  if ((m = path.match(/^\/api\/sessions\/(\d+)\/publish$/)) && method === "POST") {
+    requireAdmin(auth);
+    const r = await db
+      .prepare("UPDATE sessions SET published = ? WHERE id = ?")
+      .bind(body?.published ? 1 : 0, Number(m[1]))
+      .run();
+    if (!r.meta.changes) throw new HttpError(404, "Không tìm thấy giải.");
+    return json({ ok: true });
   }
   if ((m = path.match(/^\/api\/sessions\/(\d+)$/))) {
     requireAdmin(auth);
@@ -334,7 +359,9 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
       const ids = new Set((await db.prepare("SELECT id FROM players").all<{ id: number }>()).results.map((p) => p.id));
       const s = parseSession(body, ids);
       await db.batch([
-        db.prepare("UPDATE sessions SET date = ? WHERE id = ?").bind(s.date, id),
+        body && "published" in body
+          ? db.prepare("UPDATE sessions SET date = ?, published = ? WHERE id = ?").bind(s.date, body.published ? 1 : 0, id)
+          : db.prepare("UPDATE sessions SET date = ? WHERE id = ?").bind(s.date, id),
         db.prepare("DELETE FROM results WHERE session_id = ?").bind(id),
         ...resultStmts(db, id, s),
       ]);
@@ -351,7 +378,7 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
 
   if (path === "/api/export" && method === "GET") {
     requireAdmin(auth);
-    return json({ exported_at: new Date().toISOString(), ...(await loadAll(db)) });
+    return json({ exported_at: new Date().toISOString(), ...(await loadAll(db, true)) });
   }
 
   throw new HttpError(404, "Không có API này.");

@@ -10,7 +10,12 @@
 <body>
   <header class="top">
     <h1>🎱 Bida Pool</h1>
-    <span id="who" class="who"></span>
+    <span class="who-wrap">
+      <span id="viewsw" class="viewsw" hidden title="Chế độ xem">
+        <button type="button" data-view="admin">Admin</button><button type="button" data-view="user">User</button>
+      </span>
+      <span id="who" class="who"></span>
+    </span>
   </header>
 
   <nav class="tabs" id="tabs">
@@ -22,6 +27,8 @@
     <button data-tab="entry" class="admin-only">Nhập giải</button>
     <button data-tab="players" class="admin-only">Cơ thủ</button>
   </nav>
+
+  <p id="view-note" class="view-note" hidden></p>
 
   <main>
     <section id="tab-board">
@@ -67,6 +74,7 @@
           <label for="date">Ngày thi đấu</label>
           <input type="date" id="date" required />
         </div>
+        <label class="pub-chk"><input type="checkbox" id="published" /> Công khai ngay (bỏ chọn = lưu nháp, chỉ admin thấy, chưa tính điểm)</label>
 
         <div class="entry-cols">
           <div class="entry-sec">

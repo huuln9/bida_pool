@@ -33,7 +33,30 @@ if (tg) {
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
-const state = { isAdmin: false, players: [], sessions: [], editingId: null };
+const state = { isAdmin: false, view: "user", players: [], sessions: [], editingId: null };
+
+// ---------- chế độ xem của admin ----------
+// "admin": thấy & tính cả giải chưa công khai; "user": xem y như user thường (chỉ giải đã công khai)
+const adminView = () => state.isAdmin && state.view === "admin";
+const withDrafts = (path) => (adminView() ? path + (path.includes("?") ? "&" : "?") + "all=1" : path);
+
+function setView(v, reload = true) {
+  state.view = v;
+  try { localStorage.setItem("bp_view", v); } catch {}
+  document.body.classList.toggle("admin", adminView());
+  document.querySelectorAll("#viewsw button").forEach((b) => b.classList.toggle("on", b.dataset.view === v));
+  if (!reload) return;
+  const cur = document.querySelector("#tabs button.on");
+  // Đang ở tab chỉ dành cho admin mà chuyển sang chế độ User thì về Bảng xếp hạng
+  showTab(cur && !cur.classList.contains("admin-only") ? cur.dataset.tab : "board");
+}
+
+function updateViewNote(draftCount) {
+  const n = $("#view-note");
+  if (!adminView() || !draftCount) return (n.hidden = true);
+  n.textContent = `Chế độ Admin: đang tính cả ${draftCount} giải chưa công khai. Chuyển sang User để xem như mọi người.`;
+  n.hidden = false;
+}
 
 // ---------- API ----------
 async function api(path, opts = {}) {
@@ -72,6 +95,7 @@ function haptic(type = "success") {
 
 // ---------- tabs ----------
 function showTab(name) {
+  $("#view-note").hidden = true;
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === name));
   document.querySelectorAll("main > section").forEach((s) => (s.hidden = s.id !== "tab-" + name));
   if (name === "board") loadBoard();
@@ -85,6 +109,10 @@ function showTab(name) {
     loadVisitors();
   }
 }
+$("#viewsw").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-view]");
+  if (b && b.dataset.view !== state.view) setView(b.dataset.view);
+});
 $("#tabs").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-tab]");
   if (b) showTab(b.dataset.tab);
@@ -101,7 +129,8 @@ const fmtDate = (d) => (d ? d.split("-").reverse().join("/") : "");
 async function loadBoard() {
   const lb = $("#lb");
   try {
-    const { rows, latest, sessionCount } = await api("/api/leaderboard");
+    const { rows, latest, sessionCount, draftCount } = await api(withDrafts("/api/leaderboard"));
+    updateViewNote(draftCount);
     $("#board-sub").textContent = latest ? `Sau ${sessionCount} giải · gần nhất ${fmtDate(latest.date)}` : "Chưa có giải nào.";
 
     // Ký hiệu ghi chú: (*), (**), ...
@@ -179,7 +208,7 @@ function avatarHtml(id, name, version, cls = "") {
 async function loadPodium() {
   const box = $("#podium");
   try {
-    const [sessions, players] = await Promise.all([api("/api/sessions"), loadPlayers()]);
+    const [sessions, players] = await Promise.all([api(withDrafts("/api/sessions")), loadPlayers()]);
     const pl = new Map(players.map((p) => [p.id, p]));
     const person = (id) => pl.get(id) ?? { id, name: "?", avatar_v: null };
     const av = (id, cls = "") => avatarHtml(id, person(id).name, person(id).avatar_v, cls);
@@ -243,7 +272,8 @@ function slotStyle(fr, [x1, y1, x2, y2]) {
 async function loadAchievements() {
   const box = $("#achv");
   try {
-    const { rows, avatars = {} } = await api("/api/leaderboard");
+    const { rows, avatars = {}, draftCount } = await api(withDrafts("/api/leaderboard"));
+    updateViewNote(draftCount);
     const list = rows
       .map((r) => ({ ...r, stars: r.league_win + r.cup_win + (r.double_win || 0) }))
       .sort((a, b) => b.stars - a.stars || b.league_win - a.league_win || a.rank - b.rank);
@@ -293,7 +323,7 @@ const isDark = () =>
 async function loadCharts() {
   const box = $("#charts");
   try {
-    const [sessions, players] = await Promise.all([api("/api/sessions"), loadPlayers()]);
+    const [sessions, players] = await Promise.all([api(withDrafts("/api/sessions")), loadPlayers()]);
     document.documentElement.classList.toggle("dark", !!isDark());
     // Màu gắn theo cơ thủ (thứ tự id), không đổi giữa 2 biểu đồ
     const ordered = [...players].sort((a, b) => a.id - b.id);
@@ -512,7 +542,7 @@ function resTable(title, cls, list, name) {
 async function loadSessions() {
   const box = $("#session-list");
   try {
-    [state.sessions] = await Promise.all([api("/api/sessions"), loadPlayers()]);
+    [state.sessions] = await Promise.all([api(withDrafts("/api/sessions")), loadPlayers()]);
     const name = (id) => state.players.find((p) => p.id === id)?.name ?? "?";
     if (!state.sessions.length) {
       box.innerHTML = `<p class="hint">Chưa có giải nào.</p>`;
@@ -523,9 +553,10 @@ async function loadSessions() {
         const league = s.results.filter((r) => r.type === "LEAGUE").sort((a, b) => b.win - a.win);
         const ranks = denseRanks(league.map((r) => r.win));
         const cup = s.results.filter((r) => r.type === "CUP").sort((a, b) => a.rank - b.rank);
-        return `<div class="card">
-          <h3><span>Giải ${state.sessions.length - i} · ${fmtDate(s.date)}</span>
+        return `<div class="card${s.published ? "" : " is-draft"}">
+          <h3><span>Giải ${state.sessions.length - i} · ${fmtDate(s.date)}${s.published ? "" : ` <span class="draft">Chưa công khai</span>`}</span>
             <span class="btns admin-only">
+              <button class="mini" data-pub="${s.id}">${s.published ? "Ẩn" : "Công khai"}</button>
               <button class="mini" data-edit="${s.id}">Sửa</button>
               <button class="mini danger" data-del="${s.id}">Xoá</button>
             </span></h3>
@@ -544,6 +575,21 @@ async function loadSessions() {
 $("#session-list").addEventListener("click", async (e) => {
   const edit = e.target.closest("[data-edit]");
   const del = e.target.closest("[data-del]");
+  const pub = e.target.closest("[data-pub]");
+  if (pub) {
+    const s = state.sessions.find((x) => x.id === Number(pub.dataset.pub));
+    const next = !s?.published;
+    const msg = next ? `Công khai giải ${fmtDate(s?.date)}? Mọi người sẽ thấy và điểm được tính.` : `Ẩn giải ${fmtDate(s?.date)}? Điểm sẽ không tính cho tới khi công khai lại.`;
+    if (!(await confirmBox(msg))) return;
+    try {
+      await api(`/api/sessions/${pub.dataset.pub}/publish`, { method: "POST", body: { published: next } });
+      haptic();
+      toast(next ? "Đã công khai" : "Đã ẩn");
+      loadSessions();
+    } catch (err) {
+      toast(err.message);
+    }
+  }
   if (edit) {
     const s = state.sessions.find((x) => x.id === Number(edit.dataset.edit));
     if (s) startEdit(s);
@@ -639,6 +685,7 @@ async function resetEntry() {
   $("#entry-submit").textContent = "Lưu giải";
   $("#entry-err").textContent = "";
   $("#date").value = todayStr();
+  $("#published").checked = false;
   await loadPlayers();
   renderEntryRows(null);
 }
@@ -651,6 +698,7 @@ async function startEdit(s) {
   $("#entry-submit").textContent = "Cập nhật giải";
   $("#entry-err").textContent = "";
   $("#date").value = s.date;
+  $("#published").checked = !!s.published;
   renderEntryRows(s.results);
 }
 $("#entry-cancel").addEventListener("click", () => {
@@ -677,7 +725,7 @@ function readEntry() {
     cup.push({ player_id: p.id, rank, win: w ?? undefined, lose: l ?? undefined });
   }
   if (!league.length && !cup.length) throw new Error("Chưa nhập kết quả nào.");
-  return { date: $("#date").value, league, cup };
+  return { date: $("#date").value, league, cup, published: $("#published").checked };
 }
 
 $("#entry").addEventListener("submit", async (e) => {
@@ -691,14 +739,14 @@ $("#entry").addEventListener("submit", async (e) => {
     return;
   }
   const editing = state.editingId != null;
-  const msg = `${editing ? "Cập nhật" : "Lưu"} giải ${fmtDate(body.date)}: League ${body.league.length} người, Cup ${body.cup.length} người?`;
+  const msg = `${editing ? "Cập nhật" : "Lưu"} giải ${fmtDate(body.date)}: League ${body.league.length} người, Cup ${body.cup.length} người — ${body.published ? "công khai" : "chưa công khai"}?`;
   if (!(await confirmBox(msg))) return;
   try {
     await api(editing ? `/api/sessions/${state.editingId}` : "/api/sessions", { method: editing ? "PUT" : "POST", body });
     haptic();
-    toast(editing ? "Đã cập nhật" : "Đã lưu");
+    toast((editing ? "Đã cập nhật" : "Đã lưu") + (body.published ? "" : " (chưa công khai)"));
     state.editingId = null;
-    showTab("board");
+    showTab(body.published ? "board" : "sessions");
   } catch (err) {
     haptic("error");
     $("#entry-err").textContent = err.message;
@@ -876,7 +924,12 @@ async function loadVisitors() {
   try {
     const me = await api("/api/me");
     state.isAdmin = me.isAdmin;
-    document.body.classList.toggle("admin", me.isAdmin);
+    if (me.isAdmin) {
+      let v = "admin";
+      try { v = localStorage.getItem("bp_view") === "user" ? "user" : "admin"; } catch {}
+      $("#viewsw").hidden = false;
+      setView(v, false);
+    }
     const name = me.user ? me.user.first_name || me.user.username : "";
     $("#who").textContent = me.isAdmin ? `${name} · admin` : name ? `${name} · User` : "User";
   } catch {
