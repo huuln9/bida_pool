@@ -855,16 +855,16 @@ async function loadVisitors() {
   try {
     const list = await api("/api/visitors");
     $("#visitor-count").textContent = `(${list.length})`;
-    box.innerHTML = `<thead><tr><th class="n">Tên</th><th class="n">Username</th><th>Telegram ID</th><th>Lần mở</th><th>Lần cuối</th></tr></thead>
+    box.innerHTML = `<thead><tr><th class="n">Tên</th><th class="n">Username</th><th>Telegram ID</th><th>Lần cuối</th></tr></thead>
       <tbody>${list
         .map(
           (v) => `<tr>
           <td class="n"><span class="vis-n">${v.photo_url ? `<img src="${esc(v.photo_url)}" alt="" />` : ""}${esc([v.first_name, v.last_name].filter(Boolean).join(" ") || "?")}</span></td>
           <td class="n">${v.username ? `<a href="https://t.me/${esc(v.username)}" target="_blank">@${esc(v.username)}</a>` : "–"}</td>
-          <td>${v.tg_id}</td><td>${v.visits}</td><td>${fmtTime(v.last_seen)}</td>
+          <td>${v.tg_id}</td><td>${fmtTime(v.last_seen)}</td>
         </tr>`,
         )
-        .join("") || `<tr><td colspan="5" class="hint">Chưa có ai mở app.</td></tr>`}</tbody>`;
+        .join("") || `<tr><td colspan="4" class="hint">Chưa có ai mở app.</td></tr>`}</tbody>`;
   } catch (e) {
     $("#visitor-count").textContent = "";
     box.innerHTML = `<tbody><tr><td class="err">${esc(e.message)}</td></tr></tbody>`;

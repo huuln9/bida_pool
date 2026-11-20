@@ -188,7 +188,7 @@ async function api(req: Request, env: Env, path: string): Promise<Response> {
         .prepare(
           "INSERT INTO visitors (tg_id, first_name, last_name, username, photo_url) VALUES (?, ?, ?, ?, ?) " +
             "ON CONFLICT(tg_id) DO UPDATE SET first_name = excluded.first_name, last_name = excluded.last_name, " +
-            "username = excluded.username, photo_url = excluded.photo_url, visits = visits + 1, last_seen = datetime('now')",
+            "username = excluded.username, photo_url = excluded.photo_url, last_seen = datetime('now')",
         )
         .bind(u.id, u.first_name ?? null, u.last_name ?? null, u.username ?? null, u.photo_url ?? null)
         .run()
