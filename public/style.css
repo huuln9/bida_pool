@@ -396,4 +396,3 @@ textarea { resize: none; overflow: hidden; line-height: 1.4; font-family: inheri
 .viewsw { display: inline-flex; border: 0.5px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
 .viewsw button { border: 0; background: transparent; color: var(--hint); font-size: 11px; padding: 3px 8px; cursor: pointer; }
 .viewsw button.on { background: var(--btn); color: var(--btn-text); font-weight: 600; }
-.view-note { font-size: 12px; color: #b45309; background: color-mix(in srgb, #f59e0b 14%, transparent); border-radius: 8px; padding: 6px 10px; margin: 0 0 10px; }

@@ -51,13 +51,6 @@ function setView(v, reload = true) {
   showTab(cur && !cur.classList.contains("admin-only") ? cur.dataset.tab : "board");
 }
 
-function updateViewNote(draftCount) {
-  const n = $("#view-note");
-  if (!adminView() || !draftCount) return (n.hidden = true);
-  n.textContent = `Chế độ Admin: đang tính cả ${draftCount} giải chưa công khai. Chuyển sang User để xem như mọi người.`;
-  n.hidden = false;
-}
-
 // ---------- API ----------
 async function api(path, opts = {}) {
   const res = await fetch(path, {
@@ -95,7 +88,6 @@ function haptic(type = "success") {
 
 // ---------- tabs ----------
 function showTab(name) {
-  $("#view-note").hidden = true;
   document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === name));
   document.querySelectorAll("main > section").forEach((s) => (s.hidden = s.id !== "tab-" + name));
   if (name === "board") loadBoard();
@@ -129,8 +121,7 @@ const fmtDate = (d) => (d ? d.split("-").reverse().join("/") : "");
 async function loadBoard() {
   const lb = $("#lb");
   try {
-    const { rows, latest, sessionCount, draftCount } = await api(withDrafts("/api/leaderboard"));
-    updateViewNote(draftCount);
+    const { rows, latest, sessionCount } = await api(withDrafts("/api/leaderboard"));
     $("#board-sub").textContent = latest ? `Sau ${sessionCount} giải · gần nhất ${fmtDate(latest.date)}` : "Chưa có giải nào.";
 
     // Ký hiệu ghi chú: (*), (**), ...
@@ -272,8 +263,7 @@ function slotStyle(fr, [x1, y1, x2, y2]) {
 async function loadAchievements() {
   const box = $("#achv");
   try {
-    const { rows, avatars = {}, draftCount } = await api(withDrafts("/api/leaderboard"));
-    updateViewNote(draftCount);
+    const { rows, avatars = {} } = await api(withDrafts("/api/leaderboard"));
     const list = rows
       .map((r) => ({ ...r, stars: r.league_win + r.cup_win + (r.double_win || 0) }))
       .sort((a, b) => b.stars - a.stars || b.league_win - a.league_win || a.rank - b.rank);
